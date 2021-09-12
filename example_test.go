@@ -8,6 +8,7 @@ import (
 	"go.starlark.net/starlark"
 
 	"github.com/ipld/go-datalark"
+	"github.com/ipld/go-datalark/testutil"
 )
 
 func Example_hello() {
@@ -24,9 +25,9 @@ func Example_hello() {
 	globals["datalark"] = datalark.ObjOfConstructorsForPrimitives()
 
 	// Now here's our demo script:
-	script := `
-print(datalark.String("yo"))
-`
+	script := testutil.Dedent(`
+		print(datalark.String("yo"))
+	`)
 
 	// Invoke the starlark interpreter!
 	_, err := starlark.ExecFile(thread, "thefilename.star", script, globals)
@@ -66,10 +67,10 @@ func Example_helloTypes() {
 	)
 
 	// Now here's our demo script:
-	script := `
-print(mytypes.FooBar)
-print(mytypes.FooBar(foo="helloooo", bar="world!"))
-`
+	script := testutil.Dedent(`
+		print(mytypes.FooBar)
+		print(mytypes.FooBar(foo="helloooo", bar="world!"))
+	`)
 
 	// Invoke the starlark interpreter!
 	_, err := starlark.ExecFile(thread, "thefilename.star", script, globals)
@@ -106,9 +107,9 @@ func Example_helloGlobals() {
 	datalark.InjectGlobals(globals, datalark.ObjOfConstructorsForPrimitives())
 
 	// Now here's our demo script:
-	script := `
-print(String("yo")) # look, no 'datalark.' prefix!
-`
+	script := testutil.Dedent(`
+		print(String("yo")) # look, no 'datalark.' prefix!
+	`)
 
 	// Invoke the starlark interpreter!
 	_, err := starlark.ExecFile(thread, "thefilename.star", script, globals)

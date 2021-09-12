@@ -8,6 +8,7 @@ import (
 	"go.starlark.net/starlark"
 
 	"github.com/ipld/go-datalark"
+	"github.com/ipld/go-datalark/testutil"
 )
 
 func eval(src string, tsname string, npts []schema.TypedPrototype) {
@@ -31,13 +32,13 @@ func eval(src string, tsname string, npts []schema.TypedPrototype) {
 }
 
 func Example_hello() {
-	eval(`
-print(String)
-print(String("yo"))
-x = {"bz": "zoo"}
-print(Map(hey="hai", zonk="wot", **x))
-print(Map({String("fun"): "heeey"}))
-`, "", nil)
+	eval(testutil.Dedent(`
+		print(String)
+		print(String("yo"))
+		x = {"bz": "zoo"}
+		print(Map(hey="hai", zonk="wot", **x))
+		print(Map({String("fun"): "heeey"}))
+	`), "", nil)
 
 	// Output:
 	// <built-in function datalark.Prototype>
@@ -62,11 +63,11 @@ func Example_structs() {
 	)
 	type FooBar struct{ Foo, Bar string }
 
-	eval(`
-#print(dir(ts))
-print(ts.FooBar)
-print(ts.FooBar(foo="hai", bar="wot"))
-`, "ts", []schema.TypedPrototype{
+	eval(testutil.Dedent(`
+		#print(dir(ts))
+		print(ts.FooBar)
+		print(ts.FooBar(foo="hai", bar="wot"))
+	`), "ts", []schema.TypedPrototype{
 		bindnode.Prototype((*FooBar)(nil), ts.TypeByName("FooBar")),
 	})
 
@@ -93,10 +94,10 @@ func Example_mapWithStructKeys() {
 		Values map[FooBar]string
 	}
 
-	eval(`
-#print(ts.Map__FooBar__String({"f:b": "wot"})) # I want this to work someday, but it's not quite that magic yet.
-print(ts.Map__FooBar__String({ts.FooBar(foo="f", bar="b"): "wot"}))
-`, "ts", []schema.TypedPrototype{
+	eval(testutil.Dedent(`
+		#print(ts.Map__FooBar__String({"f:b": "wot"})) # I want this to work someday, but it's not quite that magic yet.
+		print(ts.Map__FooBar__String({ts.FooBar(foo="f", bar="b"): "wot"}))
+	`), "ts", []schema.TypedPrototype{
 		bindnode.Prototype((*FooBar)(nil), ts.TypeByName("FooBar")),
 		bindnode.Prototype((*M)(nil), ts.TypeByName("Map__FooBar__String")),
 	})
