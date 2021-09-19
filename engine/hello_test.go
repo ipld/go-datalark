@@ -16,9 +16,11 @@ func Example_structs() {
 	type FooBar struct{ Foo, Bar string }
 
 	evalExample(`
-		#print(dir(mytypes))
 		print(mytypes.FooBar)
 		print(mytypes.FooBar(foo="hai", bar="wot"))
+		x = {"foo": "z"}
+		x["bar"] = "å!"
+		print(mytypes.FooBar(**x))
 	`, []schema.TypedPrototype{
 		bindnode.Prototype((*FooBar)(nil), ts.TypeByName("FooBar")),
 	})
@@ -28,6 +30,10 @@ func Example_structs() {
 	// struct<FooBar>{
 	// 	foo: string<String>{"hai"}
 	// 	bar: string<String>{"wot"}
+	// }
+	// struct<FooBar>{
+	//	foo: string<String>{"z"}
+	//	bar: string<String>{"å!"}
 	// }
 }
 
