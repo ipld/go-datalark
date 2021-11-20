@@ -42,8 +42,8 @@ Or creating structs with other more complex starlark syntaxes:
 
 [testmark]:# (hello-structs/create/script.various/complex)
 ```python
-x = {"foo": "z"}
-x["bar"] = "å!"
+x = {"foo": "one"}
+x["bar"] = "two"
 print(mytypes.FooBar(**x))
 ```
 
