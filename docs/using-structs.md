@@ -57,3 +57,57 @@ struct<FooBar>{
 	bar: string<String>{"two"}
 }
 ```
+
+### Creating nested structs
+
+Let's look at what kind of syntax is available for creating nested structures.
+
+We'll need some (slightly) more complex types:
+
+[testmark]:# (nested-structs/schema)
+```ipldsch
+type Frob struct {
+	foo String
+	bar String
+	baz Baz
+}
+type Baz struct {
+	bop String
+}
+```
+
+Using another plain starlark object still works.
+In fact, it works even if the restructuring has to go deep --
+see how this creates the deeper struct out of a nested literal:
+
+[testmark]:# (nested-structs/create/script.various/objliteral)
+```python
+print(mytypes.Frob({
+	"foo": "oof",
+	"bar": "rab",
+	"baz": {"bop": "pob"},
+}))
+```
+
+Of course, you can also assemble things one at a time,
+constructing each type yourself, and composing them:
+
+[testmark]:# (nested-structs/create/script.various/steps)
+```python
+x = mytypes.Baz(bop="pob")
+y = mytypes.Frob({"foo":"oof", "bar":"rab", "baz":x})
+print(y)
+```
+
+The result, either way you do it, is this:
+
+[testmark]:# (nested-structs/create/output)
+```text
+struct<Frob>{
+	foo: string<String>{"oof"}
+	bar: string<String>{"rab"}
+	baz: struct<Baz>{
+		bop: string<String>{"pob"}
+	}
+}
+```
