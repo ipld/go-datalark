@@ -29,13 +29,13 @@ func Example_structs() {
 	}
 
 	// Here's a script running on them:
-	evalExample(`
+	evalExample(bindings, `
 		print(mytypes.FooBar)
 		print(mytypes.FooBar(foo="hai", bar="wot"))
 		x = {"foo": "z"}
 		x["bar"] = "å!"
 		print(mytypes.FooBar(**x))
-	`, bindings)
+	`)
 
 	// Output:
 	// <built-in function datalark.Prototype<FooBar>>
@@ -64,13 +64,13 @@ func Example_mapWithStructKeys() {
 		Values map[FooBar]string
 	}
 
-	evalExample(`
-		#print(mytypes.Map__FooBar__String({"f:b": "wot"})) # I want this to work someday, but it's not quite that magic yet.
-		print(mytypes.Map__FooBar__String({mytypes.FooBar(foo="f", bar="b"): "wot"}))
-	`, []schema.TypedPrototype{
+	evalExample([]schema.TypedPrototype{
 		bindnode.Prototype((*FooBar)(nil), ts.TypeByName("FooBar")),
 		bindnode.Prototype((*M)(nil), ts.TypeByName("Map__FooBar__String")),
-	})
+	}, `
+		#print(mytypes.Map__FooBar__String({"f:b": "wot"})) # I want this to work someday, but it's not quite that magic yet.
+		print(mytypes.Map__FooBar__String({mytypes.FooBar(foo="f", bar="b"): "wot"}))
+	`)
 
 	// Output:
 	// map<Map__FooBar__String>{

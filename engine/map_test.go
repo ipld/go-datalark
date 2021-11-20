@@ -1,11 +1,11 @@
 package datalarkengine
 
 func Example_map() {
-	evalExample(`
+	evalExample(nil, `
 		x = {"bz": "zoo"}
 		print(datalark.Map(hey="hai", zonk="wot", **x))
 		print(datalark.Map({datalark.String("fun"): "heeey"}))
-	`, nil)
+	`)
 
 	// Output:
 	// map{

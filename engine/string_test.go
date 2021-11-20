@@ -1,9 +1,9 @@
 package datalarkengine
 
 func Example_string() {
-	evalExample(`
+	evalExample(nil, `
 		print(datalark.String("yo"))
-	`, nil)
+	`)
 
 	// Output:
 	// string{"yo"}
