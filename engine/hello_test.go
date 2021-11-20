@@ -1,29 +1,41 @@
 package datalarkengine
 
 import (
+	"strings"
+
+	"github.com/ipld/go-ipld-prime"
 	"github.com/ipld/go-ipld-prime/node/bindnode"
 	"github.com/ipld/go-ipld-prime/schema"
 )
 
 func Example_structs() {
-	ts := schema.MustTypeSystem(
-		schema.SpawnString("String"),
-		schema.SpawnStruct("FooBar", []schema.StructField{
-			schema.SpawnStructField("foo", "String", false, false),
-			schema.SpawnStructField("bar", "String", false, false),
-		}, nil),
-	)
+	// Start with a schema.
+	typesystem, err := ipld.LoadSchema("<noname>", strings.NewReader(`
+		type FooBar struct {
+			foo String
+			bar String
+		}
+	`))
+	if err != nil {
+		panic(err)
+	}
+
+	// These are the golang types we'll bind it to.
 	type FooBar struct{ Foo, Bar string }
 
+	// These are the bindings we'll export to starlark.
+	bindings := []schema.TypedPrototype{
+		bindnode.Prototype((*FooBar)(nil), typesystem.TypeByName("FooBar")),
+	}
+
+	// Here's a script running on them:
 	evalExample(`
 		print(mytypes.FooBar)
 		print(mytypes.FooBar(foo="hai", bar="wot"))
 		x = {"foo": "z"}
 		x["bar"] = "å!"
 		print(mytypes.FooBar(**x))
-	`, []schema.TypedPrototype{
-		bindnode.Prototype((*FooBar)(nil), ts.TypeByName("FooBar")),
-	})
+	`, bindings)
 
 	// Output:
 	// <built-in function datalark.Prototype<FooBar>>

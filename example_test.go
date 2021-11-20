@@ -41,13 +41,16 @@ func Example_hello() {
 
 func Example_helloTypes() {
 	// In this example we'll use an IPLD Schema!
-	ts := schema.MustTypeSystem(
-		schema.SpawnString("String"),
-		schema.SpawnStruct("FooBar", []schema.StructField{
-			schema.SpawnStructField("foo", "String", false, false),
-			schema.SpawnStructField("bar", "String", false, false),
-		}, nil),
-	)
+	typesystem, err := ipld.LoadSchema("<noname>", strings.NewReader(`
+		type FooBar struct {
+			foo String
+			bar String
+		}
+	`))
+	if err != nil {
+		panic(err)
+	}
+
 	// And we'll bind it to this golang native type:
 	type FooBar struct{ Foo, Bar string }
 
