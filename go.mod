@@ -5,6 +5,7 @@ go 1.17
 require (
 	github.com/frankban/quicktest v1.14.0
 	github.com/ipld/go-ipld-prime v0.14.0
+	github.com/warpfork/go-testmark v0.9.0
 	go.starlark.net v0.0.0-20210901212718-87f333178d59
 )
 
