@@ -54,6 +54,18 @@ The best way to increase the stability and completeness of datalark is to start 
 We're adding features as the demand for them is found.
 
 
+Contributing
+------------
+
+If you'd like to dive deep in on code, there's a [HACKME](engine/HACKME.md) guide
+in the engine package which gives some pointers for how to orient yourself in the code.
+
+If you want to get in touch with folks working on this for a chat:
+this project is part of the IPLD community, so you can follow any of the suggestions
+in https://github.com/ipld/ipld#finding-us -- there's a matrix chat, and a discord bridged to it,
+and you should find some friendly folks there.
+
+
 License
 -------
 
