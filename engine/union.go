@@ -11,17 +11,35 @@ import (
 // ConstructUnion takes a schema.TypedPrototype which must be of typekind 'union',
 // creates a builder from it, unpacks the starlark arugments into it, and returns the resulting IPLD Node.
 //
-// Three styles are supported (or four, depending on the representation strategy of the union):
+// Several styles are supported (some only for unions with certain representation strategies):
 //
-//   1. Keyword args can be used,
-//       e.g. `(memberspecifier="value")`.
-//   2. A single positional argument can be used, if the value is already typed,
-//       e.g. `(yourtypes.MemberType("value"))`.
-//   3. An object for restructuring can be used,
-//       e.g. `({"memberspecifier":"value"})`.
-//   4. For unions which have a representation strategy that works with strings,
+//   1. A single positional argument can be used, if the value is already typed,
+//       e.g. `(yourtypes.MemberTypeName("value"))`.
+//   2. Keyword args can be used, using a member type name as the key:
+//       e.g. `(MemberTypeName="value")`.
+//        If the value is not already typed, it will be fed to a type-level NodeBuilder for that type.
+//   3. Keyword args can be used, using keys from the representation:
+//       e.g. `(descriminantlabel="value")`.
+//       This works regardless of the representation strategy.
+//        If the value is not already typed, it will be fed to a representation-level NodeBuilder for that type.
+//   4. An object for restructuring can be used, using a member type name as the key:
+//       e.g. `({"MemberTypeName":"value"})`.
+//        If the value is not already typed, it will be fed to a type-level NodeBuilder for that type.
+//   5. An object for restructuring can be used, and will be handled however the representation strategy handles it:
+//       e.g. `({"descriminantlabel":"value"})` for a keyed union,
+//       or `({"tag":"descriminantlabel", "content":"value"}) for an envelope union.
+//        If the value is not already typed, it will be fed to a representation-level NodeBuilder for that type.
+//   6. For unions which have a representation strategy that works with strings,
 //      a single positional argument that's an untyped string can be used:
 //       e.g. `("discriminatorprefix:value")`.
+//        (In fact, this is just another case of Style 5, but is worth noting.)
+//
+// The styles bind from top to bottom: e.g. Style 1 applies first if it can, and then down the list.
+// In cases which may be ambiguous, such as between Style 4 and 5 if the union is keyed and the discriminant labels and the member type names happen to match,
+// then Style 4 would be chosen.  (This might be consequential because it also sets the expectation for how the rest of a complex value might be processed: as the type-level, or the representation-level view.)
+//
+// Reminder: if you want to use restructuring styles, but a mixture of type-level and representation-level values with a large structure,
+// you can do this within starlark: you can always use a new constructor function invocation to restart which level you're on.
 //
 func ConstructUnion(npt schema.TypedPrototype, _ *starlark.Thread, args starlark.Tuple, kwargs []starlark.Tuple) (starlark.Value, error) {
 	// Processing for each style in a short function, for code legibility.
