@@ -4,7 +4,7 @@ import (
 	"fmt"
 
 	"github.com/ipld/go-ipld-prime/node/bindnode"
-	"github.com/ipld/go-ipld-prime/schema"
+	ipld "github.com/ipld/go-ipld-prime/schema"
 	"go.starlark.net/starlark"
 
 	"github.com/ipld/go-datalark"

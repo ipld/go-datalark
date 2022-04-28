@@ -31,7 +31,7 @@ func ConstructUnion(npt schema.TypedPrototype, _ *starlark.Thread, args starlark
 		if err != nil {
 			panic(fmt.Errorf("dishonest union implementation?!: %w", err))
 		}
-		va, err := ma.AssembleEntry(string(kwarg.Index(0).(starlark.String)))
+		_, err = ma.AssembleEntry(string(kwarg.Index(0).(starlark.String)))
 		if err != nil {
 			return starlark.None, fmt.Errorf("datalark.Union<%s>: invalid arg to construction: must use a keyword ")
 			// FIXME you hardly every want to use the type names.  they're capitalized and look weird.  you often want the repr behavior here.  but how distinguish??
@@ -46,6 +46,7 @@ func ConstructUnion(npt schema.TypedPrototype, _ *starlark.Thread, args starlark
 			//    If you ask it for EITHER type-level or repr-level things, it should hem itself in accordingly.
 			//    In other words: the default shouldn't be one or the other.  The default is its own yolo mode thing.  There's three modes.  Not two.
 		}
+		return starlark.None, nil
 	}
 	style2 := func(npt schema.TypedPrototype, val Value) (starlark.Value, error) {
 		panic("TODO")
