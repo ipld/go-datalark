@@ -33,7 +33,7 @@ func ConstructUnion(npt schema.TypedPrototype, _ *starlark.Thread, args starlark
 		}
 		_, err = ma.AssembleEntry(string(kwarg.Index(0).(starlark.String)))
 		if err != nil {
-			return starlark.None, fmt.Errorf("datalark.Union<%s>: invalid arg to construction: must use a keyword ")
+			return starlark.None, fmt.Errorf("invalid arg to construction: must use a keyword ")
 			// FIXME you hardly every want to use the type names.  they're capitalized and look weird.  you often want the repr behavior here.  but how distinguish??
 			// Can we just check both tables and "dtrt"?
 			// If so, have to do it before creating a buildler -- builder is already a commitment to a level.

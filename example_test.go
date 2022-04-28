@@ -2,10 +2,12 @@ package datalark_test
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/ipld/go-ipld-prime/node/bindnode"
-	ipld "github.com/ipld/go-ipld-prime/schema"
+	_ "github.com/ipld/go-ipld-prime/schema"
 	"go.starlark.net/starlark"
+	"github.com/ipld/go-ipld-prime"
 
 	"github.com/ipld/go-datalark"
 	"github.com/ipld/go-datalark/testutil"
@@ -66,7 +68,7 @@ func Example_helloTypes() {
 	globals := starlark.StringDict{}
 	globals["datalark"] = datalark.ObjOfConstructorsForPrimitives()
 	globals["mytypes"] = datalark.ObjOfConstructorsForPrototypes(
-		bindnode.Prototype((*FooBar)(nil), ts.TypeByName("FooBar")),
+		bindnode.Prototype((*FooBar)(nil), typesystem.TypeByName("FooBar")),
 	)
 
 	// Now here's our demo script:
@@ -76,7 +78,7 @@ func Example_helloTypes() {
 	`)
 
 	// Invoke the starlark interpreter!
-	_, err := starlark.ExecFile(thread, "thefilename.star", script, globals)
+	_, err = starlark.ExecFile(thread, "thefilename.star", script, globals)
 	if err != nil {
 		panic(err)
 	}
