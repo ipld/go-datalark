@@ -204,6 +204,7 @@ func (v *BytesValue) Hash() (uint32, error) {
 var _ Value = (*LinkValue)(nil)
 
 type LinkValue struct {
+	// TODO(dustmop): Don't know what the shape of a link is yet.
 	link string
 }
 
