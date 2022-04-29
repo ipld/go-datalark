@@ -10,15 +10,21 @@ func assertEqual(t *testing.T, a interface{}, b interface{}) {
 	}
 }
 
-func TestBasic(t *testing.T) {
+func TestBasicTypes(t *testing.T) {
 	var val Value
 
 	val = &NullValue{}
 	assertEqual(t, val.Type(), "Null")
 
-	val = &BooleanValue{}
-	assertEqual(t, val.Type(), "Boolean")
+	val = &BoolValue{}
+	assertEqual(t, val.Type(), "Bool")
 
 	val = &IntegerValue{i: 32}
 	assertEqual(t, val.Type(), "Integer")
+
+	val = &FloatValue{f: 4.56}
+	assertEqual(t, val.Type(), "Float")
+
+	val = &StringValue{s: "test"}
+	assertEqual(t, val.Type(), "String")
 }
