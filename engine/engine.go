@@ -16,12 +16,12 @@ import (
 	"go.starlark.net/starlark"
 )
 
-type Value interface {
+type Value1 interface {
 	starlark.Value
 	Node() datamodel.Node
 }
 
-func Wrap(n datamodel.Node) (Value, error) {
+func Wrap(n datamodel.Node) (Value1, error) {
 	if nt, ok := n.(schema.TypedNode); ok {
 		switch nt.Type().TypeKind() {
 		case schema.TypeKind_Struct:
@@ -85,7 +85,7 @@ func Wrap(n datamodel.Node) (Value, error) {
 // Otherwise, it returns nil.
 // (Unwrap does not attempt to coerce other starlark values _into_ ipld Nodes.)
 func Unwrap(sval starlark.Value) datamodel.Node {
-	if g, ok := sval.(Value); ok {
+	if g, ok := sval.(Value1); ok {
 		return g.Node()
 	}
 	return nil
