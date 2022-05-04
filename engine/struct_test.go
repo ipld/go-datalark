@@ -5,7 +5,7 @@ import (
 )
 
 func TestStructs(t *testing.T) {
-	evalWithUltramagic(t,
+	assertSchemaAndScriptOutput(t,
 		`
 		type FooBar struct {
 			foo String

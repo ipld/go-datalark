@@ -1,7 +1,9 @@
 package datalarkengine
 
 func Example_map() {
-	evalExample(nil, `
+	mustExecExample(nil,
+		"mytypes",
+		`
 		x = {"bz": "zoo"}
 		print(datalark.Map(hey="hai", zonk="wot", **x))
 		print(datalark.Map({datalark.String("fun"): "heeey"}))

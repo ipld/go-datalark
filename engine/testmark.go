@@ -46,7 +46,7 @@ func testFixture(t *testing.T, filename string) {
 	}
 }
 
-func testFixtureHelper(t *testing.T, dir testmark.DirEnt, patches *testmark.PatchAccumulator, npts []schema.TypedPrototype) {
+func testFixtureHelper(t *testing.T, dir testmark.DirEnt, patches *testmark.PatchAccumulator, defines []schema.TypedPrototype) {
 	// There should be one of:
 	// - a "script" hunk (with an "output" sibling);
 	// - or a "script.various" hunk, with multiple children (with an "output" sibling);
@@ -54,16 +54,15 @@ func testFixtureHelper(t *testing.T, dir testmark.DirEnt, patches *testmark.Patc
 	//    (Technically, you can recurse, too, but I don't see why you'd want to.)
 	switch {
 	case dir.Children["script"] != nil:
-		var buf bytes.Buffer
-		err := eval_helper(&buf, npts, string(dir.Children["script"].Hunk.Body))
+		output, err := runScript(defines, "mytypes", string(dir.Children["script"].Hunk.Body))
 		if err != nil {
 			t.Fatalf("script eval failed: %s", err) // TODO probably actually just append this to the buffer for diffing
 		}
 
 		if *testmark.Regen {
-			patches.AppendPatchIfBodyDiffers(*dir.Children["output"].Hunk, buf.Bytes())
+			patches.AppendPatchIfBodyDiffers(*dir.Children["output"].Hunk, []byte(output))
 		} else {
-			qt.Assert(t, buf.String(), qt.Equals, string(dir.Children["output"].Hunk.Body))
+			qt.Assert(t, output, qt.Equals, string(dir.Children["output"].Hunk.Body))
 		}
 	case dir.Children["script.various"] != nil:
 		// This is more different than "run each as if it was called 'script'"
@@ -71,8 +70,7 @@ func testFixtureHelper(t *testing.T, dir testmark.DirEnt, patches *testmark.Patc
 		var seen []string
 		for _, script := range dir.Children["script.various"].ChildrenList {
 			t.Run(script.Name, func(t *testing.T) {
-				var buf bytes.Buffer
-				err := eval_helper(&buf, npts, string(script.Hunk.Body))
+				output, err := runScript(defines, "mytypes", string(script.Hunk.Body))
 				if err != nil {
 					t.Fatalf("script eval failed: %s", err) // TODO probably actually just append this to the buffer for diffing
 				}
@@ -80,15 +78,15 @@ func testFixtureHelper(t *testing.T, dir testmark.DirEnt, patches *testmark.Patc
 				if *testmark.Regen {
 					var repeat bool
 					for _, sawIt := range seen {
-						if sawIt == buf.String() {
+						if sawIt == output {
 							repeat = true
 						}
 					}
 					if !repeat {
-						seen = append(seen, buf.String())
+						seen = append(seen, output)
 					}
 				} else {
-					qt.Assert(t, buf.String(), qt.Equals, string(dir.Children["output"].Hunk.Body))
+					qt.Assert(t, output, qt.Equals, string(dir.Children["output"].Hunk.Body))
 				}
 			})
 			if *testmark.Regen {
@@ -100,7 +98,7 @@ func testFixtureHelper(t *testing.T, dir testmark.DirEnt, patches *testmark.Patc
 	default:
 		for _, dir := range dir.ChildrenList {
 			t.Run(dir.Name, func(t *testing.T) {
-				testFixtureHelper(t, dir, patches, npts)
+				testFixtureHelper(t, dir, patches, defines)
 			})
 		}
 	}
