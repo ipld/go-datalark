@@ -5,7 +5,7 @@ import (
 	"strings"
 
 	"github.com/ipld/go-ipld-prime/node/bindnode"
-	_ "github.com/ipld/go-ipld-prime/schema"
+	"github.com/ipld/go-ipld-prime/schema"
 	"go.starlark.net/starlark"
 	"github.com/ipld/go-ipld-prime"
 
@@ -24,7 +24,7 @@ func Example_hello() {
 
 	// Use datalark to make IPLD value constructors available to Starlark!
 	globals := starlark.StringDict{}
-	globals["datalark"] = datalark.ObjOfConstructorsForPrimitives()
+	globals["datalark"] = datalark.PrimitiveConstructors()
 
 	// Now here's our demo script:
 	script := testutil.Dedent(`
@@ -66,9 +66,11 @@ func Example_helloTypes() {
 
 	// Use datalark to make IPLD value constructors available to Starlark!
 	globals := starlark.StringDict{}
-	globals["datalark"] = datalark.ObjOfConstructorsForPrimitives()
-	globals["mytypes"] = datalark.ObjOfConstructorsForPrototypes(
-		bindnode.Prototype((*FooBar)(nil), typesystem.TypeByName("FooBar")),
+	globals["datalark"] = datalark.PrimitiveConstructors()
+	globals["mytypes"] = datalark.MakeConstructors(
+		[]schema.TypedPrototype{
+			bindnode.Prototype((*FooBar)(nil), typesystem.TypeByName("FooBar")),
+		},
 	)
 
 	// Now here's our demo script:
@@ -109,7 +111,7 @@ func Example_helloGlobals() {
 	// Note the use of 'InjectGlobals' here -- this puts things into scope without any namespace,
 	// as opposed to what we did in other examples, which let you choose a name in the globals to put everything under.
 	globals := starlark.StringDict{}
-	datalark.InjectGlobals(globals, datalark.ObjOfConstructorsForPrimitives())
+	datalark.InjectGlobals(globals, datalark.PrimitiveConstructors())
 
 	// Now here's our demo script:
 	script := testutil.Dedent(`

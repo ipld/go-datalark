@@ -36,40 +36,20 @@ import (
 )
 
 // InjectGlobals mutates a starlark.StringDict to contain the values in the given Object.
-//
-// Use this if you want to add things to your global starlark environment without a namespacing element.
-// (If you want things *with* a namespacing element, it's sufficient to just put the Object in the StringDict under whatever key you like.)
-//
-// This is meant to be used with objects like those from ObjOfConstructorsForPrimitives and ObjOfConstructorsForPrototypes.
 // It will panic if keys that aren't starlark.String are encountered, if iterators error, etc.
 func InjectGlobals(globals starlark.StringDict, obj *datalarkengine.Object) {
 	datalarkengine.InjectGlobals(globals, obj)
 }
 
-// ObjOfConstructorsForPrimitives  returns an Object containing constructor functions
+// PrimitiveConstrutors returns an Object containing constructor functions
 // for all the IPLD Data Model kinds -- strings, maps, etc -- as those names, in TitleCase.
-//
-// An "Object" is like a starlark.Dict but you can also access its members using dotted notation.
-// It's a convenient namespacing helper.
-// You can either add it as a value to the globals starlark.StringDict and use the key you add it to as a namespace;
-// or, you can use the InjectGlobals function to make all the functions available as globals without namespacing.
-func ObjOfConstructorsForPrimitives() *datalarkengine.Object {
-	return datalarkengine.ObjOfConstructorsForPrimitives()
+func PrimitiveConstructors() *datalarkengine.Object {
+	return datalarkengine.PrimitiveConstructors()
 }
 
-// ObjOfConstructorsForPrototypes returns an Object containing constructor functions for IPLD typed nodes,
-// based on the list of schema.TypedPrototype you provide,
-// and using the names of each of those prototype's types as the keys.
-//
-// An "Object" is like a starlark.Dict but you can also access its members using dotted notation.
-// It's a convenient namespacing helper.
-// You can either add it as a value to the globals starlark.StringDict and use the key you add it to as a namespace;
-// or, you can use the InjectGlobals function to make all the functions available as globals without namespacing.
-//
-// The reason this function takes `schema.TypedPrototype` as an argument,
-// rather than `schema.Type`, is because prototypes contain information about how to actually construct values.
-// (A `schema.Type` value only describes the shape of data, but doesn't say how we want to work with it in memory,
-// so it's not enough information to create constructor functions out of.)
-func ObjOfConstructorsForPrototypes(prototypes ...schema.TypedPrototype) *datalarkengine.Object {
-	return datalarkengine.ObjOfConstructorsForPrototypes(prototypes...)
+// MakeConstructors returns an Object containing constructor functions for IPLD typed
+// nodes, based on the list of schema.TypedPrototype provided, and using the names
+// of each of those prototype's types as the keys.
+func MakeConstructors(prototypes []schema.TypedPrototype) *datalarkengine.Object {
+	return datalarkengine.MakeConstructors(prototypes)
 }

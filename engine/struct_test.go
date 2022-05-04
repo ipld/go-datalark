@@ -11,7 +11,9 @@ func TestStructs(t *testing.T) {
 			foo String
 			bar String
 		}
-	`, `
+	`,
+		"mytypes",
+		`
 		print(mytypes.FooBar(foo="one", bar="two"))
 	`, `
 		struct<FooBar>{

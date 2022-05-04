@@ -23,10 +23,8 @@ func InjectGlobals(globals starlark.StringDict, obj *Object) {
 	}
 }
 
-// See docs on datalark.ObjOfConstructorsForPrimitives.
-// Typically you should prefer using functions in the datalark package,
-// rather than their equivalents in the datalarkengine package.
-func ObjOfConstructorsForPrimitives() *Object {
+// PrimitiveConstructors returns the constructors for primitive types as an Object
+func PrimitiveConstructors() *Object {
 	obj := NewObject(7)
 	obj.SetKey(starlark.String("Map"), &Prototype{basicnode.Prototype.Map})
 	obj.SetKey(starlark.String("List"), &Prototype{basicnode.Prototype.List})
@@ -39,10 +37,8 @@ func ObjOfConstructorsForPrimitives() *Object {
 	return obj
 }
 
-// See docs on datalark.ObjOfConstructorsForPrototypes.
-// Typically you should prefer using functions in the datalark package,
-// rather than their equivalents in the datalarkengine package.
-func ObjOfConstructorsForPrototypes(prototypes ...schema.TypedPrototype) *Object {
+// MakeConstructors returns the constructors for the given prototypes as an Object
+func MakeConstructors(prototypes []schema.TypedPrototype) *Object {
 	obj := NewObject(len(prototypes))
 	for _, npt := range prototypes {
 		obj.SetKey(starlark.String(npt.Type().Name()), &Prototype{npt})

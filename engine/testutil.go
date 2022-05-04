@@ -18,7 +18,7 @@ import (
 
 // assertSchemaAndScriptOutput parses a schema and runs a script, asserting that
 // its output matches what is expected
-func assertSchemaAndScriptOutput(t *testing.T, schemaText, script, expect string) {
+func assertSchemaAndScriptOutput(t *testing.T, schemaText, globalName, script, expect string) {
 	t.Helper()
 	typesystem, err := ipld.LoadSchema("<noname>", strings.NewReader(schemaText))
 	if err != nil {
@@ -28,16 +28,15 @@ func assertSchemaAndScriptOutput(t *testing.T, schemaText, script, expect string
 	for _, typeInfo := range typesystem.GetTypes() {
 		defines = append(defines, bindnode.Prototype(nil, typeInfo))
 	}
-	assertScriptOutput(t, defines, script, expect)
+	assertScriptOutput(t, defines, globalName, script, expect)
 }
 
 
 // assertScriptOutput evaluates a script with the given defintions bound to the
 // name "mytypes", asserting that the output matches what is expected
-func assertScriptOutput(t *testing.T, defines []schema.TypedPrototype, script, expect string) {
+func assertScriptOutput(t *testing.T, defines []schema.TypedPrototype, globalName, script, expect string) {
 	t.Helper()
 
-	globalName := "mytypes"
 	output, err := runScript(defines, globalName, script)
 	qt.Assert(t, err, qt.Equals, nil)
 	qt.Assert(t, output, qt.Equals, testutil.Dedent(expect))
@@ -63,8 +62,8 @@ func runScript(defines []schema.TypedPrototype, globalName, script string) (stri
 	script = testutil.Dedent(script)
 
 	globals := starlark.StringDict{}
-	globals["datalark"] = ObjOfConstructorsForPrimitives()
-	globals[globalName] = ObjOfConstructorsForPrototypes(defines...)
+	globals["datalark"] = PrimitiveConstructors()
+	globals[globalName] = MakeConstructors(defines)
 
 	thread := &starlark.Thread{
 		Name: "thethreadname",
