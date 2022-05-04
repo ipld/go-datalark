@@ -26,6 +26,13 @@ type String struct {
 	val datamodel.Node
 }
 
+func NewString(p datamodel.NodePrototype, s string) *String {
+	nb := p.NewBuilder()
+	nb.AssignString(s)
+	n := nb.Build()
+	return &String{n}
+}
+
 func (g *String) Node() datamodel.Node {
 	return g.val
 }

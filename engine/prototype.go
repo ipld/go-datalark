@@ -17,6 +17,14 @@ type Prototype struct {
 	np datamodel.NodePrototype
 }
 
+func NewPrototype(np datamodel.NodePrototype) *Prototype {
+	return &Prototype{np: np}
+}
+
+func (p *Prototype) NodePrototype() datamodel.NodePrototype {
+	return p.np
+}
+
 // -- starlark.Value -->
 
 var _ starlark.Value = (*Prototype)(nil)
