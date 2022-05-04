@@ -81,7 +81,7 @@ func (g *Prototype) CallInternal(thread *starlark.Thread, args starlark.Tuple, k
 	case len(kwargs) > 0:
 		return ConstructMap(g.np, thread, args, kwargs)
 	}
-	return Wrap(nb.Build())
+	return ToValue(nb.Build())
 }
 
 // FUTURE: We can choose to implement Attrs and GetAttr on this, if we want to expose the ability to introspect things or look at types from skylark!

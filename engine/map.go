@@ -63,37 +63,37 @@ func ConstructMap(np datamodel.NodePrototype, _ *starlark.Thread, args starlark.
 			return starlark.None, err
 		}
 	}
-	return &Map{nb.Build()}, nil
+	return &Map1{nb.Build()}, nil
 }
 
-var _ starlark.Mapping = (*Map)(nil)
+var _ starlark.Mapping = (*Map1)(nil)
 
-type Map struct {
+type Map1 struct {
 	val datamodel.Node
 }
 
-func (g *Map) Node() datamodel.Node {
+func (g *Map1) Node() datamodel.Node {
 	return g.val
 }
-func (g *Map) Type() string {
+func (g *Map1) Type() string {
 	if tn, ok := g.val.(schema.TypedNode); ok {
 		return fmt.Sprintf("datalark.Map<%T>", tn.Type().Name())
 	}
 	return fmt.Sprintf("datalark.Map")
 }
-func (g *Map) String() string {
+func (g *Map1) String() string {
 	return printer.Sprint(g.val)
 }
-func (g *Map) Freeze() {}
-func (g *Map) Truth() starlark.Bool {
+func (g *Map1) Freeze() {}
+func (g *Map1) Truth() starlark.Bool {
 	return true
 }
-func (g *Map) Hash() (uint32, error) {
+func (g *Map1) Hash() (uint32, error) {
 	return 0, errors.New("TODO")
 }
 
 // Get implements part of `starlark.Mapping`.
-func (g *Map) Get(in starlark.Value) (out starlark.Value, found bool, err error) {
+func (g *Map1) Get(in starlark.Value) (out starlark.Value, found bool, err error) {
 	if _, ok := in.(Value); ok {
 		// TODO: unbox it and use LookupByNode.
 	}
@@ -104,8 +104,8 @@ func (g *Map) Get(in starlark.Value) (out starlark.Value, found bool, err error)
 	if err != nil {
 		return nil, false, err
 	}
-	w, err := Wrap(n)
-	return w, true, err
+	val, err := ToValue(n)
+	return val, true, err
 }
 
 // TODO: Items?  Keys?  Len?  Iterate?  Attr?  AttrNames?

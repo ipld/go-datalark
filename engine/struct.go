@@ -98,7 +98,7 @@ func (g *Struct) Hash() (uint32, error) {
 		if err != nil {
 			return 0, err
 		}
-		w, err := Wrap(v)
+		w, err := ToValue(v)
 		if err != nil {
 			return 0, err
 		}
@@ -119,7 +119,7 @@ func (g *Struct) Attr(name string) (starlark.Value, error) {
 	if err != nil {
 		return nil, err
 	}
-	return Wrap(n)
+	return ToValue(n)
 }
 
 func (g *Struct) AttrNames() []string {

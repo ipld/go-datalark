@@ -12,7 +12,7 @@ import (
 
 func TestUsage(t *testing.T) {
 	var n datamodel.Node
-	var v datalarkengine.Value1
+	var v datalarkengine.Value
 
 	var dep *datalarkengine.Prototype
 	var p ipld.NodePrototype
@@ -24,7 +24,7 @@ func TestUsage(t *testing.T) {
 	nb.AssignString("goodbye")
 	n = nb.Build()
 
-	v = datalarkengine.NewString(p, "hello")
+	v = datalarkengine.NewString1(p, "hello")
 
 	fmt.Printf("%s\n", n)
 	fmt.Printf("%v\n", n)

@@ -16,65 +16,38 @@ import (
 	"go.starlark.net/starlark"
 )
 
-type Value1 interface {
-	starlark.Value
-	Node() datamodel.Node
-}
-
-func Wrap(n datamodel.Node) (Value1, error) {
+func ToValue(n datamodel.Node) (Value, error) {
 	if nt, ok := n.(schema.TypedNode); ok {
 		switch nt.Type().TypeKind() {
 		case schema.TypeKind_Struct:
 			return &Struct{n}, nil
 		case schema.TypeKind_Union:
-			panic("nyi")
+			panic("IMPLEMENT ME!")
 		case schema.TypeKind_Enum:
-			panic("nyi")
-		case schema.TypeKind_Map:
-			// fall down to plain data model behavior
-		case schema.TypeKind_List:
-			// fall down to plain data model behavior
-		case schema.TypeKind_Unit:
-			// fall down to plain data model behavior
-		case schema.TypeKind_Bool:
-			// fall down to plain data model behavior
-		case schema.TypeKind_Int:
-			// fall down to plain data model behavior
-		case schema.TypeKind_Float:
-			// fall down to plain data model behavior
-		case schema.TypeKind_String:
-			// fall down to plain data model behavior
-		case schema.TypeKind_Bytes:
-			// fall down to plain data model behavior
-		case schema.TypeKind_Link:
-			// fall down to plain data model behavior
-		case schema.TypeKind_Invalid:
-			panic("uninitialized memory?")
-		default:
-			panic("unreachable")
+			panic("IMPLEMENT ME!")
 		}
 	}
 	switch n.Kind() {
 	case datamodel.Kind_Map:
-		return &Map{n}, nil
+		return newValue(n, datamodel.Kind_Map), nil
 	case datamodel.Kind_List:
-		panic("nyi")
+		panic("IMPLEMENT ME!")
 	case datamodel.Kind_Null:
-		panic("nyi")
+		panic("IMPLEMENT ME!")
 	case datamodel.Kind_Bool:
-		panic("nyi")
+		panic("IMPLEMENT ME!")
 	case datamodel.Kind_Int:
-		panic("nyi")
+		panic("IMPLEMENT ME!")
 	case datamodel.Kind_Float:
-		panic("nyi")
+		panic("IMPLEMENT ME!")
 	case datamodel.Kind_String:
-		return &String{n}, nil
+		return newValue(n, datamodel.Kind_String), nil
 	case datamodel.Kind_Bytes:
-		panic("nyi")
+		panic("IMPLEMENT ME!")
 	case datamodel.Kind_Link:
-		panic("nyi")
+		panic("IMPLEMENT ME!")
 	case datamodel.Kind_Invalid:
-		panic("uninitialized memory?")
+		panic("invalid!")
 	default:
 		panic("unreachable")
 	}
@@ -84,8 +57,8 @@ func Wrap(n datamodel.Node) (Value1, error) {
 // if so, it gets the ipld Node back out and returns that.
 // Otherwise, it returns nil.
 // (Unwrap does not attempt to coerce other starlark values _into_ ipld Nodes.)
-func Unwrap(sval starlark.Value) datamodel.Node {
-	if g, ok := sval.(Value1); ok {
+func NodeFromValue(sval starlark.Value) datamodel.Node {
+	if g, ok := sval.(Value); ok {
 		return g.Node()
 	}
 	return nil
@@ -105,7 +78,7 @@ func Unwrap(sval starlark.Value) datamodel.Node {
 // so if it's not *literally* one of the concrete types that we can match on, well, we're outta luck.
 func assignish(na datamodel.NodeAssembler, sval starlark.Value) error {
 	// Unwrap an existing datamodel value if there is one.
-	w := Unwrap(sval)
+	w := NodeFromValue(sval)
 	if w != nil {
 		return na.AssignNode(w)
 	}

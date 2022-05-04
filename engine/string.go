@@ -19,37 +19,37 @@ func ConstructString(np datamodel.NodePrototype, _ *starlark.Thread, b *starlark
 	if err := nb.AssignString(val); err != nil {
 		return nil, err
 	}
-	return Wrap(nb.Build())
+	return ToValue(nb.Build())
 }
 
-type String struct {
+type String1 struct {
 	val datamodel.Node
 }
 
-func NewString(p datamodel.NodePrototype, s string) *String {
+func NewString1(p datamodel.NodePrototype, s string) *String1 {
 	nb := p.NewBuilder()
 	nb.AssignString(s)
 	n := nb.Build()
-	return &String{n}
+	return &String1{n}
 }
 
-func (g *String) Node() datamodel.Node {
+func (g *String1) Node() datamodel.Node {
 	return g.val
 }
-func (g *String) Type() string {
+func (g *String1) Type() string {
 	if tn, ok := g.val.(schema.TypedNode); ok {
 		return fmt.Sprintf("datalark.String<%T>", tn.Type().Name())
 	}
 	return fmt.Sprintf("datalark.String")
 }
-func (g *String) String() string {
+func (g *String1) String() string {
 	return printer.Sprint(g.val)
 }
-func (g *String) Freeze() {}
-func (g *String) Truth() starlark.Bool {
+func (g *String1) Freeze() {}
+func (g *String1) Truth() starlark.Bool {
 	return true
 }
-func (g *String) Hash() (uint32, error) {
+func (g *String1) Hash() (uint32, error) {
 	s, _ := g.val.AsString()
 	return starlark.String(s).Hash()
 }
