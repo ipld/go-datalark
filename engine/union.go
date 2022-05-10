@@ -38,9 +38,9 @@ func ConstructUnion(npt schema.TypedPrototype, _ *starlark.Thread, args starlark
 			// Can we just check both tables and "dtrt"?
 			// If so, have to do it before creating a buildler -- builder is already a commitment to a level.
 			// ... if the value is deep, it requires picking a level and sticking to it too.
-			//    I guess we attain that naturally by using assignish instead of recursing at the level starlark would.  Is that good?
+			//    I guess we attain that naturally by using assembleVal instead of recursing at the level starlark would.  Is that good?
 			//  Yes, actually, I think it is.  I think that's the principle discovery.  We can read tealeaves about level immediately in the start of construction, but after that you lock in.
-			//     ... except using a type again, even in a deep structure that gets restructured, should still dominate.  assignish probably doesn't do that yet.
+			//     ... except using a type again, even in a deep structure that gets restructured, should still dominate.  assembleVal probably doesn't do that yet.
 			//         It does, actually!  but only on the assumption that the AssignNode receiving it knows how to grok either repr or type level nodes.  might be bugs in those zones to discover and fix; test heavily.
 			// The other key insight I now realize is: yeah, the default constructor should do yolo-figure-it-out.
 			//    If you ask it for EITHER type-level or repr-level things, it should hem itself in accordingly.

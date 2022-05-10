@@ -20,7 +20,7 @@ func ToValue(n datamodel.Node) (Value, error) {
 	if nt, ok := n.(schema.TypedNode); ok {
 		switch nt.Type().TypeKind() {
 		case schema.TypeKind_Struct:
-			return &Struct{n}, nil
+			return newStructValue(n), nil
 		case schema.TypeKind_Union:
 			panic("IMPLEMENT ME!")
 		case schema.TypeKind_Enum:
@@ -29,7 +29,7 @@ func ToValue(n datamodel.Node) (Value, error) {
 	}
 	switch n.Kind() {
 	case datamodel.Kind_Map:
-		return newValue(n, datamodel.Kind_Map), nil
+		return newBasicValue(n, datamodel.Kind_Map), nil
 	case datamodel.Kind_List:
 		panic("IMPLEMENT ME!")
 	case datamodel.Kind_Null:
@@ -41,7 +41,7 @@ func ToValue(n datamodel.Node) (Value, error) {
 	case datamodel.Kind_Float:
 		panic("IMPLEMENT ME!")
 	case datamodel.Kind_String:
-		return newValue(n, datamodel.Kind_String), nil
+		return newBasicValue(n, datamodel.Kind_String), nil
 	case datamodel.Kind_Bytes:
 		panic("IMPLEMENT ME!")
 	case datamodel.Kind_Link:
@@ -58,8 +58,8 @@ func ToValue(n datamodel.Node) (Value, error) {
 // Otherwise, it returns nil.
 // (Unwrap does not attempt to coerce other starlark values _into_ ipld Nodes.)
 func NodeFromValue(sval starlark.Value) datamodel.Node {
-	if g, ok := sval.(Value); ok {
-		return g.Node()
+	if v, ok := sval.(Value); ok {
+		return v.Node()
 	}
 	return nil
 }
@@ -76,7 +76,7 @@ func NodeFromValue(sval starlark.Value) datamodel.Node {
 // However, there is no support for primitives unless they're one of the concrete types from the starlark package;
 // starlark doesn't have a concept of a data model where you can ask what "kind" something is,
 // so if it's not *literally* one of the concrete types that we can match on, well, we're outta luck.
-func assignish(na datamodel.NodeAssembler, sval starlark.Value) error {
+func assembleVal(na datamodel.NodeAssembler, sval starlark.Value) error {
 	// Unwrap an existing datamodel value if there is one.
 	w := NodeFromValue(sval)
 	if w != nil {
@@ -111,14 +111,14 @@ func assignish(na datamodel.NodeAssembler, sval starlark.Value) error {
 		defer itr.Done()
 		var k starlark.Value
 		for itr.Next(&k) {
-			if err := assignish(ma.AssembleKey(), k); err != nil {
+			if err := assembleVal(ma.AssembleKey(), k); err != nil {
 				return err
 			}
 			v, _, err := s2.Get(k)
 			if err != nil {
 				return err
 			}
-			if err := assignish(ma.AssembleValue(), v); err != nil {
+			if err := assembleVal(ma.AssembleValue(), v); err != nil {
 				return err
 			}
 		}
@@ -136,7 +136,7 @@ func assignish(na datamodel.NodeAssembler, sval starlark.Value) error {
 		defer itr.Done()
 		var v starlark.Value
 		for itr.Next(&v) {
-			if err := assignish(la.AssembleValue(), v); err != nil {
+			if err := assembleVal(la.AssembleValue(), v); err != nil {
 				return err
 			}
 		}

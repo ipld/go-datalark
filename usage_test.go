@@ -24,7 +24,7 @@ func TestUsage(t *testing.T) {
 	nb.AssignString("goodbye")
 	n = nb.Build()
 
-	v = datalarkengine.NewString1(p, "hello")
+	v = datalarkengine.NewString("hello")
 
 	fmt.Printf("%s\n", n)
 	fmt.Printf("%v\n", n)

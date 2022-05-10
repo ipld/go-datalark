@@ -20,19 +20,8 @@ func ConstructStruct(npt schema.TypedPrototype, _ *starlark.Thread, args starlar
 		return starlark.None, fmt.Errorf("datalark.Struct: can either use positional or keyword arguments, but not both")
 
 	case len(kwargs) > 0:
-		ma, err := nb.BeginMap(int64(len(kwargs)))
+		err := buildMapFromKwargs(nb, kwargs)
 		if err != nil {
-			return starlark.None, err
-		}
-		for _, kwarg := range kwargs {
-			if err := assignish(ma.AssembleKey(), kwarg[0]); err != nil {
-				return starlark.None, err
-			}
-			if err := assignish(ma.AssembleValue(), kwarg[1]); err != nil {
-				return starlark.None, err
-			}
-		}
-		if err := ma.Finish(); err != nil {
 			return starlark.None, err
 		}
 
@@ -47,8 +36,9 @@ func ConstructStruct(npt schema.TypedPrototype, _ *starlark.Thread, args starlar
 		}
 
 	case len(args) == 1:
-		// If there's one arg, and it's a starlark dict, 'assignish' will do the right thing and restructure that into us.
-		if err := assignish(nb, args[0]); err != nil {
+		// TODO(dustmop): Validate that this is a dict, fail early otherwise
+		// If there's one arg, and it's a starlark dict, 'assembleVal' will do the right thing and restructure that into us.
+		if err := assembleVal(nb, args[0]); err != nil {
 			return starlark.None, fmt.Errorf("datalark.Struct: %w", err)
 		}
 
@@ -58,42 +48,37 @@ func ConstructStruct(npt schema.TypedPrototype, _ *starlark.Thread, args starlar
 	default:
 		panic("unreachable")
 	}
-	return &Struct{nb.Build()}, nil
+	return newStructValue(nb.Build()), nil
 }
 
-func WrapStruct(val datamodel.Node) (*Struct, error) {
-	if tn, ok := val.(schema.TypedNode); !ok {
-		return nil, fmt.Errorf("WrapStruct must be used on a typed node!")
-	} else {
-		if tn.Type().TypeKind() != schema.TypeKind_Struct {
-			return nil, fmt.Errorf("WrapStruct must be used on a node with typekind 'struct'!")
-		}
-	}
-	return &Struct{val}, nil
+type structValue struct {
+	node datamodel.Node
 }
 
-type Struct struct {
-	val datamodel.Node
+var _ Value = (*structValue)(nil)
+
+func newStructValue(node datamodel.Node) Value {
+	return &structValue{node}
 }
 
-func (g *Struct) Node() datamodel.Node {
-	return g.val
+func (v *structValue) Node() datamodel.Node {
+	return v.node
 }
-func (g *Struct) Type() string {
-	return fmt.Sprintf("datalark.Struct<%T>", g.val.(schema.TypedNode).Type().Name())
+func (v *structValue) Type() string {
+	return fmt.Sprintf("datalark.Struct<%T>", v.node.(schema.TypedNode).Type().Name())
 }
-func (g *Struct) String() string {
-	return printer.Sprint(g.val)
+func (v *structValue) String() string {
+	return printer.Sprint(v.node)
 }
-func (g *Struct) Freeze() {}
-func (g *Struct) Truth() starlark.Bool {
+func (v *structValue) Freeze() {}
+func (v *structValue) Truth() starlark.Bool {
 	return true
 }
-func (g *Struct) Hash() (uint32, error) {
+func (v *structValue) Hash() (uint32, error) {
 	// Riffing off Starlark's algorithm for Tuple, which is in turn riffing off Python.
 	var x, mult uint32 = 0x345678, 1000003
-	l := g.val.Length()
-	for itr := g.val.MapIterator(); !itr.Done(); {
+	l := v.node.Length()
+	for itr := v.node.MapIterator(); !itr.Done(); {
 		_, v, err := itr.Next()
 		if err != nil {
 			return 0, err
@@ -112,19 +97,19 @@ func (g *Struct) Hash() (uint32, error) {
 	return x, nil
 }
 
-func (g *Struct) Attr(name string) (starlark.Value, error) {
+func (v *structValue) Attr(name string) (starlark.Value, error) {
 	// TODO: distinction between 'Attr' and 'Get'.  This can/should list functions, I think.  'Get' makes it unambiguous.  I think.
 	// TODO: perhaps also add a "__constr__" or "__proto__" function to everything?
-	n, err := g.val.LookupByString(name)
+	n, err := v.node.LookupByString(name)
 	if err != nil {
 		return nil, err
 	}
 	return ToValue(n)
 }
 
-func (g *Struct) AttrNames() []string {
-	names := make([]string, 0, g.val.Length())
-	for itr := g.val.MapIterator(); !itr.Done(); {
+func (v *structValue) AttrNames() []string {
+	names := make([]string, 0, v.node.Length())
+	for itr := v.node.MapIterator(); !itr.Done(); {
 		k, _, err := itr.Next()
 		if err != nil {
 			panic(fmt.Errorf("error while iterating: %w", err)) // should *really* not happen for structs, incidentally.
@@ -135,6 +120,7 @@ func (g *Struct) AttrNames() []string {
 	return names
 }
 
-func (g *Struct) SetField(name string, val starlark.Value) error {
+func (v *structValue) SetField(name string, val starlark.Value) error {
 	return fmt.Errorf("datalark values are immutable")
 }
+

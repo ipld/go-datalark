@@ -72,7 +72,7 @@ func (g *Prototype) CallInternal(thread *starlark.Thread, args starlark.Tuple, k
 	case len(args) > 0 && len(kwargs) > 0:
 		return starlark.None, fmt.Errorf("datalark.Prototype.__call__: can either use positional or keyword arguments, but not both")
 	case len(args) == 1:
-		if err := assignish(nb, args[0]); err != nil {
+		if err := assembleVal(nb, args[0]); err != nil {
 			return starlark.None, fmt.Errorf("datalark.Prototype.__call__: %w", err)
 		}
 	case len(args) > 1:

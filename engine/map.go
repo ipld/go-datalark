@@ -40,67 +40,83 @@ func ConstructMap(np datamodel.NodePrototype, _ *starlark.Thread, args starlark.
 		return starlark.None, fmt.Errorf("datalark.Map: if using positional arguments, only one is expected")
 	}
 	if len(args) == 1 {
-		// If there's one arg, and it's a starlark dict, 'assignish' will do the right thing and restructure that into us.
+		// TODO(dustmop): Validate that this is a dict, fail early otherwise
+		// If there's one arg, and it's a starlark dict, 'assembleVal' will do the right thing and restructure that into us.
 		// FUTURE: I'd like this to also be clever enough to, if the map key type is a struct or something (but with stringy representation), have this also magic that into rightness.  Unclear where exactly that magic should live, though.
-		if err := assignish(nb, args[0]); err != nil {
+		if err := assembleVal(nb, args[0]); err != nil {
 			return starlark.None, fmt.Errorf("datalark.Map: %w", err)
 		}
 	}
 	if len(kwargs) > 0 {
-		ma, err := nb.BeginMap(int64(len(kwargs))) // FUTURE: this could... need to take into account more things.
+		err := buildMapFromKwargs(nb, kwargs)
 		if err != nil {
 			return starlark.None, err
 		}
-		for _, kwarg := range kwargs {
-			if err := assignish(ma.AssembleKey(), kwarg[0]); err != nil {
-				return starlark.None, err
-			}
-			if err := assignish(ma.AssembleValue(), kwarg[1]); err != nil {
-				return starlark.None, err
-			}
+	}
+	return &mapValue{nb.Build()}, nil
+}
+
+
+func buildMapFromKwargs(nb datamodel.NodeBuilder, kwargs []starlark.Tuple) error {
+	ma, err := nb.BeginMap(int64(len(kwargs)))
+	if err != nil {
+		return err
+	}
+	for _, kwarg := range kwargs {
+		if err := assembleVal(ma.AssembleKey(), kwarg[0]); err != nil {
+			return err
 		}
-		if err := ma.Finish(); err != nil {
-			return starlark.None, err
+		if err := assembleVal(ma.AssembleValue(), kwarg[1]); err != nil {
+			return err
 		}
 	}
-	return &Map1{nb.Build()}, nil
+	if err := ma.Finish(); err != nil {
+		return err
+	}
+	return nil
 }
 
-var _ starlark.Mapping = (*Map1)(nil)
-
-type Map1 struct {
-	val datamodel.Node
+type mapValue struct {
+	node datamodel.Node
 }
 
-func (g *Map1) Node() datamodel.Node {
-	return g.val
+var _ starlark.Mapping = (*mapValue)(nil)
+var _ Value            = (*mapValue)(nil)
+
+func (v *mapValue) Node() datamodel.Node {
+	return v.node
 }
-func (g *Map1) Type() string {
-	if tn, ok := g.val.(schema.TypedNode); ok {
+func (v *mapValue) Type() string {
+	if tn, ok := v.node.(schema.TypedNode); ok {
 		return fmt.Sprintf("datalark.Map<%T>", tn.Type().Name())
 	}
 	return fmt.Sprintf("datalark.Map")
 }
-func (g *Map1) String() string {
-	return printer.Sprint(g.val)
+func (v *mapValue) String() string {
+	return printer.Sprint(v.node)
 }
-func (g *Map1) Freeze() {}
-func (g *Map1) Truth() starlark.Bool {
+func (v *mapValue) Freeze() {}
+func (v *mapValue) Truth() starlark.Bool {
 	return true
 }
-func (g *Map1) Hash() (uint32, error) {
+func (v *mapValue) Hash() (uint32, error) {
 	return 0, errors.New("TODO")
 }
 
-// Get implements part of `starlark.Mapping`.
-func (g *Map1) Get(in starlark.Value) (out starlark.Value, found bool, err error) {
+// Get returns a value from a map, implementing starlark.Mapping
+// example:
+//
+//   d = {'a': 'apple', 'b': 'banana'}
+//   d['a'] # calls d.Get('a')
+//
+func (v *mapValue) Get(in starlark.Value) (out starlark.Value, found bool, err error) {
 	if _, ok := in.(Value); ok {
 		// TODO: unbox it and use LookupByNode.
 	}
 	// TODO: coerce to string?  (don't use the String method, it's a printer, not what want.)
 	// TODO: it has now become high time to standardize the "not found" errors from the Node API!
 	ks := in.String() // FIXME placeholder; objectively and clearly wrong.
-	n, err := g.val.LookupByString(ks)
+	n, err := v.node.LookupByString(ks)
 	if err != nil {
 		return nil, false, err
 	}
