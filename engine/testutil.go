@@ -15,7 +15,6 @@ import (
 	"github.com/ipld/go-datalark/testutil"
 )
 
-
 // assertSchemaAndScriptOutput parses a schema and runs a script, asserting that
 // its output matches what is expected
 func assertSchemaAndScriptOutput(t *testing.T, schemaText, globalName, script, expect string) {
@@ -31,7 +30,6 @@ func assertSchemaAndScriptOutput(t *testing.T, schemaText, globalName, script, e
 	assertScriptOutput(t, defines, globalName, script, expect)
 }
 
-
 // assertScriptOutput evaluates a script with the given defintions bound to the
 // name "mytypes", asserting that the output matches what is expected
 func assertScriptOutput(t *testing.T, defines []schema.TypedPrototype, globalName, script, expect string) {
@@ -42,7 +40,6 @@ func assertScriptOutput(t *testing.T, defines []schema.TypedPrototype, globalNam
 	qt.Assert(t, output, qt.Equals, testutil.Dedent(expect))
 }
 
-
 // mustExecExample evaluates the script with the given definitions bound to the
 // given global name, and writes the output to stdout. Panics if an error occurs
 func mustExecExample(defines []schema.TypedPrototype, globalName, script string) {
@@ -52,7 +49,6 @@ func mustExecExample(defines []schema.TypedPrototype, globalName, script string)
 	}
 	fmt.Printf("%s", stdout)
 }
-
 
 // runScript evaluates the script with the given definitions bound to the given
 // global name, and returns the output and error

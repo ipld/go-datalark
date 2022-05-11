@@ -4,8 +4,8 @@ import (
 	"fmt"
 
 	"github.com/ipld/go-ipld-prime/datamodel"
-	"github.com/ipld/go-ipld-prime/printer"
 	"github.com/ipld/go-ipld-prime/node/basicnode"
+	"github.com/ipld/go-ipld-prime/printer"
 	"github.com/ipld/go-ipld-prime/schema"
 	"go.starlark.net/starlark"
 )
@@ -15,6 +15,7 @@ type Value interface {
 	Node() datamodel.Node
 }
 
+// basicValue is used to store basic (non-recursive) types like bool, int, float, string, etc
 type basicValue struct {
 	node datamodel.Node
 	kind datamodel.Kind
@@ -52,10 +53,67 @@ func (v *basicValue) Hash() (uint32, error) {
 	return 0, nil
 }
 
-// Constructors for convenience
+// constructors for convenience, each returns a datalark Value or panics upon error
 
+// NewNull constructs a null Value
+func NewNull() Value {
+	nb := basicnode.Prototype.Any.NewBuilder()
+	if err := nb.AssignNull(); err != nil {
+		panic(err)
+	}
+	return newBasicValue(nb.Build(), datamodel.Kind_Null)
+}
+
+// NewBool constructs a bool Value
+func NewBool(b bool) Value {
+	nb := basicnode.Prototype.Bool.NewBuilder()
+	if err := nb.AssignBool(b); err != nil {
+		panic(err)
+	}
+	return newBasicValue(nb.Build(), datamodel.Kind_Bool)
+}
+
+// NewInt constructs a int Value
+func NewInt(n int64) Value {
+	nb := basicnode.Prototype.Int.NewBuilder()
+	if err := nb.AssignInt(n); err != nil {
+		panic(err)
+	}
+	return newBasicValue(nb.Build(), datamodel.Kind_Int)
+}
+
+// NewFloat constructs a float Value
+func NewFloat(f float64) Value {
+	nb := basicnode.Prototype.Float.NewBuilder()
+	if err := nb.AssignFloat(f); err != nil {
+		panic(err)
+	}
+	return newBasicValue(nb.Build(), datamodel.Kind_Float)
+}
+
+// NewString constructs a string Value
 func NewString(text string) Value {
 	nb := basicnode.Prototype.String.NewBuilder()
-	nb.AssignString(text)
+	if err := nb.AssignString(text); err != nil {
+		panic(err)
+	}
 	return newBasicValue(nb.Build(), datamodel.Kind_String)
+}
+
+// NewBytes constructs a bytes Value
+func NewBytes(d []byte) Value {
+	nb := basicnode.Prototype.Bytes.NewBuilder()
+	if err := nb.AssignBytes(d); err != nil {
+		panic(err)
+	}
+	return newBasicValue(nb.Build(), datamodel.Kind_Bytes)
+}
+
+// NewBytes constructs a Link Value
+func NewLink(x datamodel.Link) Value {
+	nb := basicnode.Prototype.Link.NewBuilder()
+	if err := nb.AssignLink(x); err != nil {
+		panic(err)
+	}
+	return newBasicValue(nb.Build(), datamodel.Kind_Link)
 }

@@ -56,7 +56,6 @@ func ConstructMap(np datamodel.NodePrototype, _ *starlark.Thread, args starlark.
 	return &mapValue{nb.Build()}, nil
 }
 
-
 func buildMapFromKwargs(nb datamodel.NodeBuilder, kwargs []starlark.Tuple) error {
 	ma, err := nb.BeginMap(int64(len(kwargs)))
 	if err != nil {
@@ -81,7 +80,7 @@ type mapValue struct {
 }
 
 var _ starlark.Mapping = (*mapValue)(nil)
-var _ Value            = (*mapValue)(nil)
+var _ Value = (*mapValue)(nil)
 
 func (v *mapValue) Node() datamodel.Node {
 	return v.node

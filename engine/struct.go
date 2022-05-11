@@ -123,4 +123,3 @@ func (v *structValue) AttrNames() []string {
 func (v *structValue) SetField(name string, val starlark.Value) error {
 	return fmt.Errorf("datalark values are immutable")
 }
-
