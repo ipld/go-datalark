@@ -1,21 +1,34 @@
 package datalarkengine
 
-func Example_map() {
-	mustExecExample(nil,
-		"mytypes",
-		`
-		x = {"bz": "zoo"}
-		print(datalark.Map(hey="hai", zonk="wot", **x))
-		print(datalark.Map({datalark.String("fun"): "heeey"}))
-	`)
+import (
+	"testing"
+)
 
-	// Output:
-	// map{
-	// 	string{"hey"}: string{"hai"}
-	// 	string{"zonk"}: string{"wot"}
-	// 	string{"bz"}: string{"zoo"}
-	// }
-	// map{
-	// 	string{"fun"}: string{"heeey"}
-	// }
+func TestMapBasic(t *testing.T) {
+	// test map<string,string>
+	stdout, err := runScript(nil, "", `
+m = datalark.Map({"a": "apple"})
+print(m)
+`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	assertEqual(t, stdout, `map{
+	string{"a"}: string{"apple"}
+}
+`)
+
+	// test map<string,int>
+	stdout, err = runScript(nil, "", `
+m = datalark.Map({"a": 123})
+print(m)
+`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	assertEqual(t, stdout, `map{
+	string{"a"}: int{123}
+}
+`)
+
 }

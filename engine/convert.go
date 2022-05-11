@@ -53,17 +53,8 @@ func ToValue(n datamodel.Node) (Value, error) {
 	}
 }
 
-// Unwrap peeks at a starlark Value and see if it is implemented by one of the wrappers in this package;
-// if so, it gets the ipld Node back out and returns that.
-// Otherwise, it returns nil.
-// (Unwrap does not attempt to coerce other starlark values _into_ ipld Nodes.)
-func NodeFromValue(sval starlark.Value) datamodel.Node {
-	if v, ok := sval.(Value); ok {
-		return v.Node()
-	}
-	return nil
-}
-
+// assembleVal assigns the incoming starlark Value to the node assembler
+//
 // Attempt to put the starlark Value into the ipld NodeAssembler.
 // If we see it's one of our own wrapped types, yank it back out and use AssignNode.
 // If it's a starlark string, take that and use AssignString.
@@ -77,19 +68,19 @@ func NodeFromValue(sval starlark.Value) datamodel.Node {
 // starlark doesn't have a concept of a data model where you can ask what "kind" something is,
 // so if it's not *literally* one of the concrete types that we can match on, well, we're outta luck.
 func assembleVal(na datamodel.NodeAssembler, sval starlark.Value) error {
-	// Unwrap an existing datamodel value if there is one.
-	w := NodeFromValue(sval)
-	if w != nil {
-		return na.AssignNode(w)
+	// if the incoming value is already a datalark Value, use its Node
+	if v, ok := sval.(Value); ok {
+		return na.AssignNode(v.Node())
 	}
+
 	// Try any of the starlark primitives we can recognize.
 	switch s2 := sval.(type) {
 	case starlark.Bool:
 		return na.AssignBool(bool(s2))
 	case starlark.Int:
-		i, err := s2.Int64()
-		if err {
-			return fmt.Errorf("cannot convert starlark value down into int64")
+		i, ok := s2.Int64()
+		if !ok {
+			return fmt.Errorf("could not convert %v to int64", sval)
 		}
 		return na.AssignInt(i)
 	case starlark.Float:
@@ -100,8 +91,9 @@ func assembleVal(na datamodel.NodeAssembler, sval starlark.Value) error {
 		return na.AssignBytes([]byte(s2))
 	case starlark.IterableMapping:
 		size := -1
-		if s3, ok := s2.(starlark.Sequence); ok {
-			size = s3.Len()
+		if seq, ok := s2.(starlark.Sequence); ok {
+			// TODO(dustmop): If this conversion fails, size will be invalid
+			size = seq.Len()
 		}
 		ma, err := na.BeginMap(int64(size))
 		if err != nil {
@@ -125,8 +117,9 @@ func assembleVal(na datamodel.NodeAssembler, sval starlark.Value) error {
 		return ma.Finish()
 	case starlark.Iterable:
 		size := -1
-		if s3, ok := s2.(starlark.Sequence); ok {
-			size = s3.Len()
+		if seq, ok := s2.(starlark.Sequence); ok {
+			// TODO(dustmop): If this conversion fails, size will be invalid
+			size = seq.Len()
 		}
 		la, err := na.BeginList(int64(size))
 		if err != nil {
@@ -143,6 +136,5 @@ func assembleVal(na datamodel.NodeAssembler, sval starlark.Value) error {
 		return la.Finish()
 	}
 
-	// No joy yet?  Okay.  Bail.
-	return fmt.Errorf("unwilling to coerce starlark value of type %q into ipld datamodel", sval.Type())
+	return fmt.Errorf("could not coerce %v of type %q into ipld datamodel", sval, sval.Type())
 }
