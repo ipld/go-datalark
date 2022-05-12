@@ -82,6 +82,10 @@ type mapValue struct {
 var _ starlark.Mapping = (*mapValue)(nil)
 var _ Value = (*mapValue)(nil)
 
+func newMapValue(node datamodel.Node) Value {
+	return &mapValue{node}
+}
+
 func (v *mapValue) Node() datamodel.Node {
 	return v.node
 }

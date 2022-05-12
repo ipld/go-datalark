@@ -24,6 +24,15 @@ type basicValue struct {
 var _ Value = (*basicValue)(nil)
 
 func newBasicValue(node datamodel.Node, kind datamodel.Kind) Value {
+	if kind != datamodel.Kind_Null &&
+		kind != datamodel.Kind_Bool &&
+		kind != datamodel.Kind_Int &&
+		kind != datamodel.Kind_Float &&
+		kind != datamodel.Kind_String &&
+		kind != datamodel.Kind_Bytes &&
+		kind != datamodel.Kind_Link {
+		panic(fmt.Sprintf("invalid kind for basic value: %v", kind))
+	}
 	return &basicValue{node, kind}
 }
 
