@@ -30,8 +30,7 @@ func TestBasicTypes(t *testing.T) {
 	assertEqual(t, val.Type(), "datalark.int")
 
 	val = NewFloat(7.2)
-	// TODO(dustmop): Why doesn't this render the float value?
-	assertEqual(t, val.String(), "float{}")
+	assertEqual(t, val.String(), "float{7.2}")
 	assertEqual(t, val.Type(), "datalark.float")
 
 	val = NewString("hi")
