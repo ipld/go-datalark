@@ -5,6 +5,7 @@ import (
 )
 
 func assertEqual(t *testing.T, a interface{}, b interface{}) {
+	t.Helper()
 	if a != b {
 		t.Errorf("%v != %v", a, b)
 	}
@@ -66,4 +67,58 @@ string{"hi"}
 bytes{125690}
 `,
 	)
+}
+
+func TestBasicErrorScript(t *testing.T) {
+	// ensure float will not implicitly convert to int
+	_, err := runScript(nil, "", `
+n = datalark.Int(7.2)
+print(n)`)
+	if err == nil {
+		t.Fatal("expected error, did not get one")
+	}
+	// TODO(dustmop): Make a friendly error message, the Prototype and/or
+	// assembleVal should validate that the type matches, instead of
+	// surfacing internal details about how the nodeAssembler works
+	expectError := `datalark.Prototype.__call__: func called on wrong kind: "AssignFloat" called on a int node (kind: int), but only makes sense on float`
+	assertEqual(t, err.Error(), expectError);
+
+	// ensure string will not implicitly convert to int
+	_, err = runScript(nil, "", `
+n = datalark.Int('hi')
+print(n)`)
+	if err == nil {
+		t.Fatal("expected error, did not get one")
+	}
+	// TODO(dustmop): Make a friendly error message, the Prototype and/or
+	// assembleVal should validate that the type matches, instead of
+	// surfacing internal details about how the nodeAssembler works
+	expectError = `datalark.Prototype.__call__: func called on wrong kind: "AssignString" called on a int node (kind: int), but only makes sense on string`
+	assertEqual(t, err.Error(), expectError);
+
+	// ensure int will not implicitly convert to string
+	_, err = runScript(nil, "", `
+n = datalark.String(34)
+print(n)`)
+	if err == nil {
+		t.Fatal("expected error, did not get one")
+	}
+	// TODO(dustmop): Make a friendly error message, the Prototype and/or
+	// assembleVal should validate that the type matches, instead of
+	// surfacing internal details about how the nodeAssembler works
+	expectError = `datalark.Prototype.__call__: func called on wrong kind: "AssignInt" called on a string node (kind: string), but only makes sense on int`
+	assertEqual(t, err.Error(), expectError);
+
+	// ensure int will not implicitly convert to bool
+	_, err = runScript(nil, "", `
+n = datalark.Bool(34)
+print(n)`)
+	if err == nil {
+		t.Fatal("expected error, did not get one")
+	}
+	// TODO(dustmop): Make a friendly error message, the Prototype and/or
+	// assembleVal should validate that the type matches, instead of
+	// surfacing internal details about how the nodeAssembler works
+	expectError = `datalark.Prototype.__call__: func called on wrong kind: "AssignInt" called on a bool node (kind: bool), but only makes sense on int`
+	assertEqual(t, err.Error(), expectError);
 }
