@@ -29,7 +29,7 @@ func Example_structs() {
 	}
 
 	// Here's a script running on them:
-	mustExecExample(bindings, "mytypes", `
+	mustExecExample(nil, bindings, "mytypes", `
 		print(mytypes.FooBar)
 		print(mytypes.FooBar(foo="hai", bar="wot"))
 		x = {"foo": "z"}
@@ -64,7 +64,7 @@ func Example_mapWithStructKeys() {
 		Values map[FooBar]string
 	}
 
-	mustExecExample([]schema.TypedPrototype{
+	mustExecExample(nil, []schema.TypedPrototype{
 		bindnode.Prototype((*FooBar)(nil), ts.TypeByName("FooBar")),
 		bindnode.Prototype((*M)(nil), ts.TypeByName("Map__FooBar__String")),
 	},

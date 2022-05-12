@@ -2,10 +2,6 @@ package datalarkengine
 
 import (
 	"testing"
-
-	"github.com/ipfs/go-cid"
-	"github.com/ipld/go-ipld-prime/datamodel"
-	cidlink "github.com/ipld/go-ipld-prime/linking/cid"
 )
 
 func assertEqual(t *testing.T, a interface{}, b interface{}) {
@@ -46,9 +42,28 @@ func TestBasicTypes(t *testing.T) {
 	assertEqual(t, val.Type(), "datalark.link")
 }
 
-func newTestLink() datamodel.Link {
-	// Example link from:
-	// https://github.com/ipld/go-ipld-prime/blob/master/datamodel/equal_test.go
-	someCid, _ := cid.Cast([]byte{1, 85, 0, 5, 0, 1, 2, 3, 4})
-	return cidlink.Link{Cid: someCid}
+func TestBasicScript(t *testing.T) {
+	mustParseSchemaRunScriptAssertOutput(t, "", "", `
+b = datalark.Bool(True)
+print(b)
+
+n = datalark.Int(34)
+print(n)
+
+f = datalark.Float(7.2)
+print(f)
+
+s = datalark.String('hi')
+print(s)
+
+d = datalark.Bytes(bytes([0x12, 0x56, 0x90]))
+print(d)
+`,
+		`bool{true}
+int{34}
+float{7.2}
+string{"hi"}
+bytes{125690}
+`,
+	)
 }

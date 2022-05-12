@@ -7,7 +7,10 @@ import (
 	"testing"
 
 	qt "github.com/frankban/quicktest"
+	"github.com/ipfs/go-cid"
 	"github.com/ipld/go-ipld-prime"
+	"github.com/ipld/go-ipld-prime/datamodel"
+	cidlink "github.com/ipld/go-ipld-prime/linking/cid"
 	"github.com/ipld/go-ipld-prime/node/bindnode"
 	"github.com/ipld/go-ipld-prime/schema"
 	"go.starlark.net/starlark"
@@ -15,9 +18,9 @@ import (
 	"github.com/ipld/go-datalark/testutil"
 )
 
-// assertSchemaAndScriptOutput parses a schema and runs a script, asserting that
-// its output matches what is expected
-func assertSchemaAndScriptOutput(t *testing.T, schemaText, globalName, script, expect string) {
+// mustParseSchemaRunScriptAssertOutput parses a schema and runs a
+// script, asserting that its output matches what is expected
+func mustParseSchemaRunScriptAssertOutput(t *testing.T, schemaText, globalName, script, expect string) {
 	t.Helper()
 	typesystem, err := ipld.LoadSchema("<noname>", strings.NewReader(schemaText))
 	if err != nil {
@@ -42,10 +45,10 @@ func assertScriptOutput(t *testing.T, defines []schema.TypedPrototype, globalNam
 
 // mustExecExample evaluates the script with the given definitions bound to the
 // given global name, and writes the output to stdout. Panics if an error occurs
-func mustExecExample(defines []schema.TypedPrototype, globalName, script string) {
+func mustExecExample(t *testing.T, defines []schema.TypedPrototype, globalName, script string) {
 	stdout, err := runScript(defines, globalName, script)
 	if err != nil {
-		panic(err)
+		t.Fatal(err)
 	}
 	fmt.Printf("%s", stdout)
 }
@@ -70,4 +73,19 @@ func runScript(defines []schema.TypedPrototype, globalName, script string) (stri
 
 	_, err := starlark.ExecFile(thread, "thefilename.star", script, globals)
 	return buf.String(), err
+}
+
+func mustRunScript(t *testing.T, defines []schema.TypedPrototype, globalName, script string) string {
+	content, err := runScript(defines, globalName, script)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return content
+}
+
+func newTestLink() datamodel.Link {
+	// Example link from:
+	// https://github.com/ipld/go-ipld-prime/blob/master/datamodel/equal_test.go
+	someCid, _ := cid.Cast([]byte{1, 85, 0, 5, 0, 1, 2, 3, 4})
+	return cidlink.Link{Cid: someCid}
 }

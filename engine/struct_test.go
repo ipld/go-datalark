@@ -5,7 +5,7 @@ import (
 )
 
 func TestStructs(t *testing.T) {
-	assertSchemaAndScriptOutput(t,
+	mustParseSchemaRunScriptAssertOutput(t,
 		`
 		type FooBar struct {
 			foo String

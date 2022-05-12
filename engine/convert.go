@@ -35,15 +35,15 @@ func ToValue(n datamodel.Node) (Value, error) {
 	case datamodel.Kind_Null:
 		panic("IMPLEMENT ME!")
 	case datamodel.Kind_Bool:
-		panic("IMPLEMENT ME!")
+		return newBasicValue(n, datamodel.Kind_Bool), nil
 	case datamodel.Kind_Int:
-		panic("IMPLEMENT ME!")
+		return newBasicValue(n, datamodel.Kind_Int), nil
 	case datamodel.Kind_Float:
-		panic("IMPLEMENT ME!")
+		return newBasicValue(n, datamodel.Kind_Float), nil
 	case datamodel.Kind_String:
 		return newBasicValue(n, datamodel.Kind_String), nil
 	case datamodel.Kind_Bytes:
-		panic("IMPLEMENT ME!")
+		return newBasicValue(n, datamodel.Kind_Bytes), nil
 	case datamodel.Kind_Link:
 		panic("IMPLEMENT ME!")
 	case datamodel.Kind_Invalid:

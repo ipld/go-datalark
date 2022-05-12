@@ -1,7 +1,7 @@
 package datalarkengine
 
 func Example_string() {
-	mustExecExample(nil,
+	mustExecExample(nil, nil,
 		"mytypes",
 		`
 		print(datalark.String("yo"))
