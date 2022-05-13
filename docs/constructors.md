@@ -13,6 +13,20 @@ Some constructors are more complex -- especially the ones that are created to ha
 Constructor Conventions
 -----------------------
 
+### Constructor Behaviors depend on Kind
+
+Constructor function behaviors depend on their [kind](https://ipld.io/glossary/#kind).
+In other words, the constructor function for a struct has certain styles of usage;
+the constructor for a string has other styles of usage.
+(Probably not a surprise!)
+
+You'll find pages all the "`using_*.md`" files in this directory
+which demonstrate in detail what calling conventions can be used for constructing various kinds of data.
+
+There will also be some more examples below, in this document.
+
+### The Processing a Constructor Must Do
+
 Constructor functions have to figure out *two* things from the arguments that you give them:
 
 - if the arguments are meant to be type-level views of data or representation-level views of the data;
@@ -82,6 +96,12 @@ FooOrBar(Foo="ooo")
 Presumably both these constructions are equivalent.
 But how does Datalark know how to parse these?
 
+In the next section, we will outline to two major decision trees that specify how these examples above work out.
+
+
+The Decision Trees
+------------------
+
 ### The Decision Tree For Mode
 
 Generally, constructors act with type-level behaviors (and field names) first,
@@ -134,6 +154,8 @@ it may also be worth considering the use of kwargs, because those can be easier 
 Map types can be constructed with positional arguments.
 Each argument in this case must be a map or starlark dict itself
 (or interpretable as one -- so a struct can be used, for example!).
+(If more than one positional argument is present, they are merged --
+and the later values dominate, in case of key collision.)
 
 List types can be constructed with positional arguments.
 Each argument becomes a member of the list.
@@ -171,7 +193,7 @@ Restructuring args is a convention we introduce in Datalark, which looks like `s
 
 "Restructuring" refers to taking some Starlark value --
 whether it be something simple like a string, or something complex like nested dicts and lists --
-and process the whole thing into an IPLD Node tree at once.
+and processes the whole thing into an IPLD Node tree at once.
 
 For example, "restructuring" means if you want an IPLD struct type,
 you can create a Starlark dict with the same keys as the struct's field names,
@@ -187,6 +209,9 @@ Restructuring mode is available for pretty much everything,
 and is engaged via use of a single special kwarg: underscore.
 For example, a restructuring construction call might look like this:
 `Foobar(_={"foo":"ooo", "bar":"aarrr"})`
+
+Restructuring on maps and on unions is accepted,
+but happens to be functionally equivalent to giving them a single positional arg with the same data.
 
 #### Examples
 
@@ -209,47 +234,44 @@ type Foo string
 type Bar string
 ```
 
-- `Fun(FooOrBar(foo="ooo"), "zot")` works just fine.
-- `Fun("foo:ooo", "zot")` works too!  (When processing the first arg, we have a type expectation, and there's no prevailing mode, so Rule 2 can kick in, and thus we parse the the string into the union based on the type info and representation strategy that we have for it.)
-- `Fun({"Foo":"ooo"}, "zot")` also works.  (Similar to above, but Rule 2 guided us a different way this time.)
+- `Fun(FooOrBar(Foo="ooo"), "zot")` works just fine.
+- `Fun("foo:ooo", "zot")` works too!  (When processing the first arg, we have a type expectation, and it has distinct kinds for the representation vs type behavior, so Rule 2 can kick in: and thus, we parse the the string into the union based on its representation strategy -- using the stringprefix.)
+- `Fun({"Foo":"ooo"}, "zot")` also works.  (Similar to above, but Rule 2 guided us a different way this time -- seeing a map, it acted on the type-level semantics for FooOrBar.)
 - `Fun({"foo:":"ooo"}, "zot")` does NOT fly.  (Rule 2 on the first arg says to use type mode for the union, but then the dict key is from the representation level, so things don't line up, and this gets rejected.)
 - `Fun(fob="foo:ooo", zot="zot")`, as you'd expect.
-- `Fun(fob=FooOrBar(foo="ooo"), zot="zot")` works too.
+- `Fun(fob=FooOrBar(Foo="ooo"), zot="zot")` works too.
 - `Fun(_={"fob":{"Foo":"ooo"}, "zot":"zot"})` works!  This is the restructuring style in action.
 - `Fun(_={"fob":"foo:ooo", "zot":"zot"})` works!  (There's a prevailing mode by the time we get to the union string, which would prefer to continue operating at type level, but the kind rule dominates it!)
-- `Fun.Typed(_={"fob":"foo:ooo", "zot":"zot"})` does NOT fly.  (The explicit statement of representation mode is sticky all the way through.)
-- `Fun.Typed(_={"fob":FooOrBar("foo:ooo"), "zot":"zot"})` works fine.  (Because `FooOrBar` is another construction call all its own, the rules restart -- the explicit mode from `Fun.Typed` doesn't apply anymore, so we're back to the kind rule working -- and then since we return a completely processed `FooBar` value, the restructuring that `Fun.Typed` is doing just accepts that value, regardless of its origin story, and moves along.)
+- `Fun.Typed(_={"fob":"foo:ooo", "zot":"zot"})` does NOT fly.  (The explicit statement to use type-level mode is sticky all the way through -- Rule 2 can't apply, so "foo:ooo" can't be parsed by the representation strategy, and is rejected.)
+- `Fun.Typed(_={"fob":FooOrBar("foo:ooo"), "zot":"zot"})` works fine.  (Because `FooOrBar` is another construction call all its own, the rules restart -- the explicit mode from `Fun.Typed` doesn't apply anymore, so we're back to Rule 2 being allowed to apply to handle "foo:ooo" -- and then since we return a completely processed `FooOrBar` value, the restructuring that `Fun.Typed` is doing just accepts that value, regardless of its origin story, and moves along.)
+
+Maps with complex keys are also possible:
+
+```ipldsch
+# ... take the above types, plus:
+type FobMap {FooOrBar:String}
+```
+
+- `FobMap({"foo:ooo":"wow", "bar:aaar":"whoa"})` works!  (Rule 2 to the rescue again: because we have type info, and the kind makes it clear we're using representation mode, these keys can be processed intelligently and without incident!)
 
 
-Prototypes and Constructor Variations
--------------------------------------
+Constructor Variations
+----------------------
 
-The main constructor for a type is a function you can call -- but it's also a "prototype",
-and you can get other constructors from it.
+The main constructor for a type is a function you can call -- but it can also have _other_ functions attached to it,
+which are generally also constructors for the same type of value, but accept different styles of arguments.
 
 The most typical examples of this are `TypeName.Repr(...)` and `TypeName.Typed(...)`,
-which let you explicitly construct a value using its representation or its type-level mode,
+which let you explicitly state whether you want the constructor for typed values
+to use the type's representation or its type-level mode --
 rather than trying to "figure it out" by best guess, as the default constructor does.
 (TODO: not implemented yet.)
 
-Some prototypes may also support access to type information via other attributes.
+Some constructors may also support access to type information via other attributes.
 (TODO: not implemented yet.)
 
-Some prototypes may also support additional constructor functions that have different styles:
+Some constructors may also support additional constructor functions that have different styles:
 for example, returning a builder object that lets one construct very large maps or lists incrementally,
 or scan in large bytes sequences as streams.
 (TODO: not implemented yet.)
-
-
-Constructors per Kind
----------------------
-
-Constructor functions have behaviors per their [kind](https://ipld.io/glossary/#kind).
-In other words, the constructor function for a struct has certain styles of usage;
-the constructor for a string has other styles of usage.
-(Probably not a surprise!)
-
-You'll find pages all the "`using_*.md`" files in this directory
-which demonstrate in detail what calling conventions can be used for constructing various kinds of data.
-
 
