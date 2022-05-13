@@ -28,6 +28,11 @@ func testFixture(t *testing.T, filename string) {
 	// Data hunks should be in "directories" of a test scenario each.
 	doc.BuildDirIndex()
 	for _, dir := range doc.DirEnt.ChildrenList {
+		// If there's no "schema" hunk, it's not one of the test styles we recognize here.  Skip.
+		if dir.Children["schema"] == nil {
+			continue
+		}
+
 		t.Run(dir.Name, func(t *testing.T) {
 			// There should be a "schema" hunk, containing DSL.  Parse it.
 			typesystem, err := ipld.LoadSchema("<noname>", bytes.NewReader(dir.Children["schema"].Hunk.Body))
