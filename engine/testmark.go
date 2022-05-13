@@ -12,6 +12,7 @@ import (
 	"github.com/warpfork/go-testmark"
 )
 
+// n.b. yes there's a reason it uses filename and not a stream; it's so the patcher can work.
 func testFixture(t *testing.T, filename string) {
 	doc, err := testmark.ReadFile(filename)
 	if err != nil {
@@ -27,6 +28,11 @@ func testFixture(t *testing.T, filename string) {
 	// Data hunks should be in "directories" of a test scenario each.
 	doc.BuildDirIndex()
 	for _, dir := range doc.DirEnt.ChildrenList {
+		// If there's no "schema" hunk, it's not one of the test styles we recognize here.  Skip.
+		if dir.Children["schema"] == nil {
+			continue
+		}
+
 		t.Run(dir.Name, func(t *testing.T) {
 			// There should be a "schema" hunk, containing DSL.  Parse it.
 			typesystem, err := ipld.LoadSchema("<noname>", bytes.NewReader(dir.Children["schema"].Hunk.Body))
