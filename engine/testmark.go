@@ -12,6 +12,7 @@ import (
 	"github.com/warpfork/go-testmark"
 )
 
+// n.b. yes there's a reason it uses filename and not a stream; it's so the patcher can work.
 func testFixture(t *testing.T, filename string) {
 	doc, err := testmark.ReadFile(filename)
 	if err != nil {

@@ -22,7 +22,3 @@ func TestStructs(t *testing.T) {
 		}
 	`)
 }
-
-func TestStructSpecs(t *testing.T) {
-	testFixture(t, "../docs/using-structs.md")
-}
