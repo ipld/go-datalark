@@ -74,6 +74,10 @@ func assembleVal(na datamodel.NodeAssembler, sval starlark.Value) error {
 	}
 
 	// Try any of the starlark primitives we can recognize.
+	// TODO(dustmop): Add explicit type-checking to each case. The nodeAssmebler
+	// must have compatible type with the incoming value to assign, otherwise
+	// the error comes from the nodeAssembler and may not accurately describe the
+	// problem
 	switch s2 := sval.(type) {
 	case starlark.Bool:
 		return na.AssignBool(bool(s2))

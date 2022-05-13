@@ -29,20 +29,20 @@ func (p *Prototype) NodePrototype() datamodel.NodePrototype {
 
 var _ starlark.Value = (*Prototype)(nil)
 
-func (g *Prototype) Type() string {
-	if npt, ok := g.np.(schema.TypedPrototype); ok {
+func (p *Prototype) Type() string {
+	if npt, ok := p.np.(schema.TypedPrototype); ok {
 		return fmt.Sprintf("datalark.Prototype<%s>", npt.Type().Name())
 	}
 	return fmt.Sprintf("datalark.Prototype")
 }
-func (g *Prototype) String() string {
-	return fmt.Sprintf("<built-in function %s>", g.Type())
+func (p *Prototype) String() string {
+	return fmt.Sprintf("<built-in function %s>", p.Type())
 }
-func (g *Prototype) Freeze() {}
-func (g *Prototype) Truth() starlark.Bool {
+func (p *Prototype) Freeze() {}
+func (p *Prototype) Truth() starlark.Bool {
 	return true
 }
-func (g *Prototype) Hash() (uint32, error) {
+func (p *Prototype) Hash() (uint32, error) {
 	return 0, nil
 }
 
@@ -50,13 +50,15 @@ func (g *Prototype) Hash() (uint32, error) {
 
 var _ starlark.Callable = (*Prototype)(nil)
 
-func (g *Prototype) Name() string {
-	return g.String()
+func (p *Prototype) Name() string {
+	return p.String()
 }
 
-func (g *Prototype) CallInternal(thread *starlark.Thread, args starlark.Tuple, kwargs []starlark.Tuple) (starlark.Value, error) {
+func (p *Prototype) CallInternal(thread *starlark.Thread, args starlark.Tuple, kwargs []starlark.Tuple) (starlark.Value, error) {
 	// If we have a TypedPrototype, try the appropriate constructors for its typekind.
-	if npt, ok := g.np.(schema.TypedPrototype); ok {
+	if npt, ok := p.np.(schema.TypedPrototype); ok {
+		// TODO(dustmop): I don't understand TypedPrototypes at the moment, investigate
+		// and return to this code.
 		switch npt.Type().TypeKind() {
 		case schema.TypeKind_Struct:
 			return ConstructStruct(npt, thread, args, kwargs)
@@ -66,8 +68,10 @@ func (g *Prototype) CallInternal(thread *starlark.Thread, args starlark.Tuple, k
 			panic(fmt.Errorf("nyi: datalark.Prototype.CallInternal for typed nodes with typekind %s", npt.Type().TypeKind()))
 		}
 	}
-	// If we have an untyped NodePrototype... just try whatever our args look like.
-	nb := g.np.NewBuilder()
+
+	// Otherwise, determine the types of arguments passed to this call, and
+	// dispatch as appropriate
+	nb := p.np.NewBuilder()
 	switch {
 	case len(args) > 0 && len(kwargs) > 0:
 		return starlark.None, fmt.Errorf("datalark.Prototype.__call__: can either use positional or keyword arguments, but not both")
@@ -75,13 +79,21 @@ func (g *Prototype) CallInternal(thread *starlark.Thread, args starlark.Tuple, k
 		if err := assembleVal(nb, args[0]); err != nil {
 			return starlark.None, fmt.Errorf("datalark.Prototype.__call__: %w", err)
 		}
-	case len(args) > 1:
-		// TODO list
-		panic("nyi")
+		return ToValue(nb.Build())
 	case len(kwargs) > 0:
-		return ConstructMap(g.np, thread, args, kwargs)
+		// TODO(dustmop): This code is usually correct, except in the case of
+		// unions, since they treat kwargs differently. Need to fix that to
+		// handle them properly.
+		dict, err := buildDictFromKwargs(kwargs)
+		if err != nil {
+			return starlark.None, err
+		}
+		if err := assembleVal(nb, dict); err != nil {
+			return starlark.None, fmt.Errorf("datalark.Prototype.__call__: %w", err)
+		}
+		return ToValue(nb.Build())
 	}
-	return ToValue(nb.Build())
+	return starlark.None, fmt.Errorf("datalark.Prototype.__call__: must be called with a single positional argument, or with keyword arguments")
 }
 
 // FUTURE: We can choose to implement Attrs and GetAttr on this, if we want to expose the ability to introspect things or look at types from skylark!

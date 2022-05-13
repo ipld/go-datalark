@@ -75,6 +75,18 @@ func buildMapFromKwargs(nb datamodel.NodeBuilder, kwargs []starlark.Tuple) error
 	return nil
 }
 
+func buildDictFromKwargs(kwargs []starlark.Tuple) (*starlark.Dict, error) {
+	num := len(kwargs)
+	dict := starlark.NewDict(num)
+
+	for _, kwarg := range kwargs {
+		if err := dict.SetKey(kwarg[0], kwarg[1]); err != nil {
+			return nil, err
+		}
+	}
+	return dict, nil
+}
+
 type mapValue struct {
 	node datamodel.Node
 }

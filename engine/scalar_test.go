@@ -45,20 +45,20 @@ func TestBasicTypes(t *testing.T) {
 
 func TestBasicScript(t *testing.T) {
 	mustParseSchemaRunScriptAssertOutput(t, "", "", `
-b = datalark.Bool(True)
-print(b)
-
-n = datalark.Int(34)
-print(n)
-
-f = datalark.Float(7.2)
-print(f)
-
-s = datalark.String('hi')
-print(s)
-
-d = datalark.Bytes(bytes([0x12, 0x56, 0x90]))
-print(d)
+		b = datalark.Bool(True)
+		print(b)
+		
+		n = datalark.Int(34)
+		print(n)
+		
+		f = datalark.Float(7.2)
+		print(f)
+		
+		s = datalark.String('hi')
+		print(s)
+		
+		d = datalark.Bytes(bytes([0x12, 0x56, 0x90]))
+		print(d)
 `,
 		`bool{true}
 int{34}
