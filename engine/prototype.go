@@ -2,6 +2,7 @@ package datalarkengine
 
 import (
 	"fmt"
+	"reflect"
 
 	"github.com/ipld/go-ipld-prime/datamodel"
 	"github.com/ipld/go-ipld-prime/schema"
@@ -14,11 +15,16 @@ import (
 // There is only one Prototype type, and its behavior varies based on
 // the `datamodel.NodePrototype` its bound to.
 type Prototype struct {
-	np datamodel.NodePrototype
+	name string
+	np   datamodel.NodePrototype
 }
 
-func NewPrototype(np datamodel.NodePrototype) *Prototype {
-	return &Prototype{np: np}
+func NewPrototype(name string, np datamodel.NodePrototype) *Prototype {
+	return &Prototype{name: name, np: np}
+}
+
+func (p *Prototype) TypeName() string {
+	return p.name
 }
 
 func (p *Prototype) NodePrototype() datamodel.NodePrototype {
@@ -76,8 +82,10 @@ func (p *Prototype) CallInternal(thread *starlark.Thread, args starlark.Tuple, k
 	case len(args) > 0 && len(kwargs) > 0:
 		return starlark.None, fmt.Errorf("datalark.Prototype.__call__: can either use positional or keyword arguments, but not both")
 	case len(args) == 1:
-		if err := assembleVal(nb, args[0]); err != nil {
-			return starlark.None, fmt.Errorf("datalark.Prototype.__call__: %w", err)
+		val := args[0]
+		if err := assembleVal(nb, val); err != nil {
+			gotType := reflect.TypeOf(val).Name()
+			return starlark.None, fmt.Errorf("cannot create %s from %v of type %s", p.TypeName(), val, gotType)
 		}
 		return ToValue(nb.Build())
 	case len(kwargs) > 0:

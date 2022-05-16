@@ -77,11 +77,8 @@ print(n)`)
 	if err == nil {
 		t.Fatal("expected error, did not get one")
 	}
-	// TODO(dustmop): Make a friendly error message, the Prototype and/or
-	// assembleVal should validate that the type matches, instead of
-	// surfacing internal details about how the nodeAssembler works
-	expectError := `datalark.Prototype.__call__: func called on wrong kind: "AssignFloat" called on a int node (kind: int), but only makes sense on float`
-	assertEqual(t, err.Error(), expectError);
+	expectError := `cannot create Int from 7.2 of type Float`
+	assertEqual(t, err.Error(), expectError)
 
 	// ensure string will not implicitly convert to int
 	_, err = runScript(nil, "", `
@@ -90,11 +87,8 @@ print(n)`)
 	if err == nil {
 		t.Fatal("expected error, did not get one")
 	}
-	// TODO(dustmop): Make a friendly error message, the Prototype and/or
-	// assembleVal should validate that the type matches, instead of
-	// surfacing internal details about how the nodeAssembler works
-	expectError = `datalark.Prototype.__call__: func called on wrong kind: "AssignString" called on a int node (kind: int), but only makes sense on string`
-	assertEqual(t, err.Error(), expectError);
+	expectError = `cannot create Int from "hi" of type String`
+	assertEqual(t, err.Error(), expectError)
 
 	// ensure int will not implicitly convert to string
 	_, err = runScript(nil, "", `
@@ -103,11 +97,8 @@ print(n)`)
 	if err == nil {
 		t.Fatal("expected error, did not get one")
 	}
-	// TODO(dustmop): Make a friendly error message, the Prototype and/or
-	// assembleVal should validate that the type matches, instead of
-	// surfacing internal details about how the nodeAssembler works
-	expectError = `datalark.Prototype.__call__: func called on wrong kind: "AssignInt" called on a string node (kind: string), but only makes sense on int`
-	assertEqual(t, err.Error(), expectError);
+	expectError = `cannot create String from 34 of type Int`
+	assertEqual(t, err.Error(), expectError)
 
 	// ensure int will not implicitly convert to bool
 	_, err = runScript(nil, "", `
@@ -116,9 +107,6 @@ print(n)`)
 	if err == nil {
 		t.Fatal("expected error, did not get one")
 	}
-	// TODO(dustmop): Make a friendly error message, the Prototype and/or
-	// assembleVal should validate that the type matches, instead of
-	// surfacing internal details about how the nodeAssembler works
-	expectError = `datalark.Prototype.__call__: func called on wrong kind: "AssignInt" called on a bool node (kind: bool), but only makes sense on int`
-	assertEqual(t, err.Error(), expectError);
+	expectError = `cannot create Bool from 34 of type Int`
+	assertEqual(t, err.Error(), expectError)
 }
