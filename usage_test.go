@@ -4,10 +4,10 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/ipld/go-ipld-prime/datamodel"
 	"github.com/ipld/go-datalark/engine"
-	"github.com/ipld/go-ipld-prime/node/basicnode"
 	"github.com/ipld/go-ipld-prime"
+	"github.com/ipld/go-ipld-prime/datamodel"
+	"github.com/ipld/go-ipld-prime/node/basicnode"
 )
 
 func TestUsage(t *testing.T) {
@@ -17,7 +17,7 @@ func TestUsage(t *testing.T) {
 	var dep *datalarkengine.Prototype
 	var p ipld.NodePrototype
 
-	dep = datalarkengine.NewPrototype(basicnode.Prototype.String)
+	dep = datalarkengine.NewPrototype("string", basicnode.Prototype.String)
 	p = dep.NodePrototype()
 
 	nb := p.NewBuilder()

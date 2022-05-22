@@ -4,10 +4,10 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/ipld/go-ipld-prime"
 	"github.com/ipld/go-ipld-prime/node/bindnode"
 	"github.com/ipld/go-ipld-prime/schema"
 	"go.starlark.net/starlark"
-	"github.com/ipld/go-ipld-prime"
 
 	"github.com/ipld/go-datalark"
 	"github.com/ipld/go-datalark/testutil"
