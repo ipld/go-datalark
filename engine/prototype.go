@@ -178,6 +178,32 @@ func isTypedMap(p *Prototype) bool {
 	return false
 }
 
+func unifyTraversalOrder(argseq* ArgSeq, fieldPairs [][]string) []int {
+	res := make([]int, len(fieldPairs))
+	// TODO(dustmop): Handle optional / nullable values, better errors
+
+	if argseq.names == nil {
+		// If there are no names, return 0,1,2..n
+		for i := range res {
+			res[i] = i
+		}
+		return res
+	}
+
+	for i, p := range fieldPairs {
+		// Otherwise, map each name from arg to fields. The int in each
+		// position of `res` tells where to find the value in `argseq.vals`
+		// For example:
+		//   args   (b='banana', c='cherry', a='apple')
+		//   fields (a, b, c)
+		// res = [2, 0, 1]
+		pos := argseq.names[p[0]]
+		res[i] = pos
+	}
+
+	return res
+}
+
 func (p *Prototype) CallInternal(thread *starlark.Thread, args starlark.Tuple, kwargs []starlark.Tuple) (starlark.Value, error) {
 	// Prototype is being called with some starlark values. Determine what
 	// the incoming arguments are, and use that to figure out how to match
@@ -267,9 +293,13 @@ func (p *Prototype) CallInternal(thread *starlark.Thread, args starlark.Tuple, k
 		if err != nil {
 			return starlark.None, err
 		}
-		// TODO(dustmop): Instead, unify the argseq's names against the field names
-		// Handle things like "foo:bar" for stringpairs representation, etc.
-		for i, v := range argseq.vals {
+
+		// Determine the order to apply the arguments
+		argOrder := unifyTraversalOrder(argseq, fieldPairs)
+
+		// Apply each argument by using its value to assemble a field
+		for i, j := range argOrder {
+			v := argseq.vals[j]
 			fieldName := fieldPairs[i][0]
 			err := assembleVal(ma.AssembleKey(), starlark.String(fieldName))
 			if err != nil {

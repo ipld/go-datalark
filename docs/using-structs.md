@@ -21,6 +21,15 @@ Creating Struct Values
 
 First, let's look at creating simple structs, like the "FooBar" struct defined earlier.
 
+
+Creating structs with positional arguments:
+
+[testmark]:# (hello-structs/create/script.various/positional)
+```python
+print(mytypes.FooBar("one", "two"))
+```
+
+
 Creating structs with keyword args:
 
 [testmark]:# (hello-structs/create/script.various/kwargs)
@@ -28,7 +37,16 @@ Creating structs with keyword args:
 print(mytypes.FooBar(foo="one", bar="two"))
 ```
 
-Creating structs with object literals:
+
+When using keyword args, order does not matter:
+
+[testmark]:# (hello-structs/create/script.various/kwargs-order)
+```python
+print(mytypes.FooBar(bar="two", foo="one"))
+```
+
+
+Creating structs by restructuring objects:
 
 [testmark]:# (hello-structs/create/script.various/objliteral)
 ```python
@@ -38,14 +56,16 @@ print(mytypes.FooBar(_={
 }))
 ```
 
-Or creating structs with other more complex starlark syntaxes:
 
-[testmark]:# (hello-structs/create/script.various/complex)
+Or creating structs by applying a dict into keyword args:
+
+[testmark]:# (hello-structs/create/script.various/apply-dict)
 ```python
 x = {"foo": "one"}
 x["bar"] = "two"
 print(mytypes.FooBar(**x))
 ```
+
 
 All of the above syntaxes do the same things,
 and so those print calls will emit the same result:

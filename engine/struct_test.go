@@ -22,3 +22,22 @@ func TestStructs(t *testing.T) {
 		}
 	`)
 }
+
+func TestStructUnordered(t *testing.T) {
+	mustParseSchemaRunScriptAssertOutput(t,
+		`
+		type FooBar struct {
+			foo String
+			bar String
+		}
+	`,
+		"mytypes",
+		`
+		print(mytypes.FooBar(bar="two", foo="one"))
+	`, `
+		struct<FooBar>{
+			foo: string<String>{"one"}
+			bar: string<String>{"two"}
+		}
+	`)
+}
