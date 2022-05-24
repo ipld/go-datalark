@@ -7,7 +7,7 @@ import (
 func TestMapBasic(t *testing.T) {
 	// test map<string,string>
 	stdout, err := runScript(nil, "", `
-m = datalark.Map({"a": "apple"})
+m = datalark.Map(_={"a": "apple"})
 print(m)
 `)
 	if err != nil {
@@ -20,7 +20,7 @@ print(m)
 
 	// test map<string,int>
 	stdout, err = runScript(nil, "", `
-m = datalark.Map({"a": 123})
+m = datalark.Map(_={"a": 123})
 print(m)
 `)
 	if err != nil {

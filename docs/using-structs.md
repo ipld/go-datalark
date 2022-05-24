@@ -32,7 +32,7 @@ Creating structs with object literals:
 
 [testmark]:# (hello-structs/create/script.various/objliteral)
 ```python
-print(mytypes.FooBar({
+print(mytypes.FooBar(_={
 	"foo": "one",
 	"bar": "two",
 }))
@@ -82,7 +82,7 @@ see how this creates the deeper struct out of a nested literal:
 
 [testmark]:# (nested-structs/create/script.various/objliteral)
 ```python
-print(mytypes.Frob({
+print(mytypes.Frob(_={
 	"foo": "oof",
 	"bar": "rab",
 	"baz": {"bop": "pob"},
@@ -95,7 +95,7 @@ constructing each type yourself, and composing them:
 [testmark]:# (nested-structs/create/script.various/steps)
 ```python
 x = mytypes.Baz(bop="pob")
-y = mytypes.Frob({"foo":"oof", "bar":"rab", "baz":x})
+y = mytypes.Frob(_={"foo":"oof", "bar":"rab", "baz":x})
 print(y)
 ```
 
