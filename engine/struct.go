@@ -9,48 +9,6 @@ import (
 	"go.starlark.net/starlark"
 )
 
-func ConstructStruct(npt schema.TypedPrototype, _ *starlark.Thread, args starlark.Tuple, kwargs []starlark.Tuple) (starlark.Value, error) {
-	// Parsing args for struct construction is *very* similar to for maps...
-	//  Except structs also allow positional arguments; maps can't make sense of that.
-
-	// Try parsing two different ways: either positional, or kwargs (but not both).
-	nb := npt.NewBuilder()
-	switch {
-	case len(args) > 0 && len(kwargs) > 0:
-		return starlark.None, fmt.Errorf("datalark.Struct: can either use positional or keyword arguments, but not both")
-
-	case len(kwargs) > 0:
-		err := buildMapFromKwargs(nb, kwargs)
-		if err != nil {
-			return starlark.None, err
-		}
-
-	case len(args) == 0:
-		// Well, okay.  Hope the whole struct is optional fields though, or you're probably gonna get a schema validation error.
-		ma, err := nb.BeginMap(0)
-		if err != nil {
-			return starlark.None, err
-		}
-		if err := ma.Finish(); err != nil {
-			return starlark.None, err
-		}
-
-	case len(args) == 1:
-		// TODO(dustmop): Validate that this is a dict, fail early otherwise
-		// If there's one arg, and it's a starlark dict, 'assembleVal' will do the right thing and restructure that into us.
-		if err := assembleVal(nb, args[0]); err != nil {
-			return starlark.None, fmt.Errorf("datalark.Struct: %w", err)
-		}
-
-	case len(args) > 1:
-		return starlark.None, fmt.Errorf("datalark.Struct: if using positional arguments, only one is expected: a dict which we can restructure to match this type")
-
-	default:
-		panic("unreachable")
-	}
-	return newStructValue(nb.Build()), nil
-}
-
 type structValue struct {
 	node datamodel.Node
 }
