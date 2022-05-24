@@ -21,10 +21,15 @@ import (
 // mustParseSchemaRunScriptAssertOutput parses a schema and runs a
 // script, asserting that its output matches what is expected
 func mustParseSchemaRunScriptAssertOutput(t *testing.T, schemaText, globalName, script, expect string) {
-	t.Helper()
+	if t != nil {
+		t.Helper()
+	}
 	typesystem, err := ipld.LoadSchema("<noname>", strings.NewReader(schemaText))
 	if err != nil {
-		t.Fatal(err)
+		if t != nil {
+			t.Fatal(err)
+		}
+		panic(err)
 	}
 	var defines []schema.TypedPrototype
 	for _, typeInfo := range typesystem.GetTypes() {
@@ -48,7 +53,10 @@ func assertScriptOutput(t *testing.T, defines []schema.TypedPrototype, globalNam
 func mustExecExample(t *testing.T, defines []schema.TypedPrototype, globalName, script string) {
 	stdout, err := runScript(defines, globalName, script)
 	if err != nil {
-		t.Fatal(err)
+		if t != nil {
+			t.Fatal(err)
+		}
+		panic(err)
 	}
 	fmt.Printf("%s", stdout)
 }
@@ -78,7 +86,10 @@ func runScript(defines []schema.TypedPrototype, globalName, script string) (stri
 func mustRunScript(t *testing.T, defines []schema.TypedPrototype, globalName, script string) string {
 	content, err := runScript(defines, globalName, script)
 	if err != nil {
-		t.Fatal(err)
+		if t != nil {
+			t.Fatal(err)
+		}
+		panic(t)
 	}
 	return content
 }

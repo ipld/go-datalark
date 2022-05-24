@@ -66,6 +66,10 @@ func (p *Prototype) Name() string {
 // as is the case for keyword args or for restructured args
 type ArgSeq struct {
 	vals   []starlark.Value
+	// ckey is used to store compound keys, such as a typed map with a
+	// struct for a key. It is somewhat of a hack, intended to fix the
+	// test `Example_mapWithStructKeys`. Ideally it shouldn't be needed.
+	ckey   []starlark.Value
 	names  map[string]int
 	scalar bool
 }
@@ -93,6 +97,7 @@ func buildArgSeq(args starlark.Tuple, kwargs []starlark.Tuple) (*ArgSeq, error) 
 		}
 		keys := dict.Keys()
 		argseq.vals = make([]starlark.Value, len(keys))
+		argseq.ckey = make([]starlark.Value, len(keys))
 		argseq.names = make(map[string]int)
 		for i := 0; i < len(keys); i++ {
 			argseq.names[asString(keys[i])] = i
@@ -100,15 +105,18 @@ func buildArgSeq(args starlark.Tuple, kwargs []starlark.Tuple) (*ArgSeq, error) 
 			if err != nil {
 				return nil, err
 			}
+			argseq.ckey[i] = keys[i]
 			argseq.vals[i] = val
 		}
 		return argseq, nil
 	case len(kwargs) > 0:
 		// keyword args
 		argseq.vals = make([]starlark.Value, len(kwargs))
+		argseq.ckey = make([]starlark.Value, len(kwargs))
 		argseq.names = make(map[string]int)
 		for i := 0; i < len(kwargs); i++ {
 			argseq.names[asString(kwargs[i][0])] = i
+			argseq.ckey[i] = kwargs[i][0]
 			argseq.vals[i] = kwargs[i][1]
 		}
 		return argseq, nil
@@ -136,7 +144,7 @@ func isScalar(p *Prototype) bool {
 	return false
 }
 
-func isMap(p *Prototype) bool {
+func isUntypedMap(p *Prototype) bool {
 	switch p.np.(type) {
 	case basicnode.Prototype__Map:
 		return true
@@ -159,6 +167,15 @@ func getStructFields(p *Prototype) [][]string {
 		return result
 	}
 	return nil
+}
+
+func isTypedMap(p *Prototype) bool {
+	if npt, ok := p.np.(schema.TypedPrototype); ok {
+		if _, ok := npt.Type().(*schema.TypeMap); ok {
+			return true
+		}
+	}
+	return false
 }
 
 func (p *Prototype) CallInternal(thread *starlark.Thread, args starlark.Tuple, kwargs []starlark.Tuple) (starlark.Value, error) {
@@ -187,7 +204,7 @@ func (p *Prototype) CallInternal(thread *starlark.Thread, args starlark.Tuple, k
 	}
 
 	// Handle constructing an untyped map
-	if isMap(p) {
+	if isUntypedMap(p) {
 		if argseq.names == nil {
 			// TODO(dustmop): Better error message
 			return starlark.None, fmt.Errorf("no names for arguments")
@@ -212,7 +229,36 @@ func (p *Prototype) CallInternal(thread *starlark.Thread, args starlark.Tuple, k
 		return ToValue(nb.Build())
 	}
 
-	// Handle constructing a struct
+	// Handle constructing a typed map
+	if isTypedMap(p) {
+		// TODO(dustmop): Somewhat of a hack, this block is almost identical
+		// to the other two, and exists to handle the case of a map with struct
+		// values for keys (see Example_mapWithStructKeys). It should be refactored
+		// and combined with one or both of the other blocks.
+		npt, _ := p.np.(schema.TypedPrototype)
+		nb := npt.NewBuilder()
+		ma, err := nb.BeginMap(int64(len(argseq.vals)))
+		if err != nil {
+			return starlark.None, err
+		}
+		for i, v := range argseq.vals {
+			compoundKey := argseq.ckey[i]
+			err := assembleVal(ma.AssembleKey(), compoundKey)
+			if err != nil {
+				return starlark.None, err
+			}
+			err = assembleVal(ma.AssembleValue(), v)
+			if err != nil {
+				return starlark.None, err
+			}
+		}
+		if err := ma.Finish(); err != nil {
+			return starlark.None, err
+		}
+		return ToValue(nb.Build())
+	}
+
+	// Handle constructing a struct, always typed
 	fieldPairs := getStructFields(p)
 	if fieldPairs != nil {
 		npt, _ := p.np.(schema.TypedPrototype)

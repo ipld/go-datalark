@@ -71,7 +71,7 @@ func Example_mapWithStructKeys() {
 		"mytypes",
 		`
 		#print(mytypes.Map__FooBar__String({"f:b": "wot"})) # I want this to work someday, but it's not quite that magic yet.
-		print(mytypes.Map__FooBar__String({mytypes.FooBar(foo="f", bar="b"): "wot"}))
+		print(mytypes.Map__FooBar__String(_={mytypes.FooBar(foo="f", bar="b"): "wot"}))
 	`)
 
 	// Output:
