@@ -22,7 +22,7 @@ func ToValue(n datamodel.Node) (Value, error) {
 		case schema.TypeKind_Struct:
 			return newStructValue(n), nil
 		case schema.TypeKind_Union:
-			panic("IMPLEMENT ME!")
+			return newUnionValue(n), nil
 		case schema.TypeKind_Enum:
 			panic("IMPLEMENT ME!")
 		}

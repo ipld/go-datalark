@@ -42,11 +42,22 @@ print(m)
 	if err != nil {
 		t.Fatal(err)
 	}
-	assertEqual(t, stdout, `map{
+
+	// Unfortunately, map stringification is non-deterministic, so both
+	// possibilities are checked here.
+	expect1 := `map{
 	string{"a"}: string{"apple"}
 	string{"b"}: string{"banana"}
 }
-`)
+`
+	expect2 := `map{
+	string{"b"}: string{"banana"}
+	string{"a"}: string{"apple"}
+}
+`
+	if stdout != expect1 && stdout != expect2 {
+		t.Errorf("unexpected output: %v", stdout)
+	}
 }
 
 // Test list construction using positional args
@@ -100,5 +111,63 @@ print(n)
 	1: int{4}
 	2: int{5}
 }
+`)
+}
+
+// Test union construction using kwargs
+func TestUnionKwargs(t *testing.T) {
+	mustParseSchemaRunScriptAssertOutput(t,
+		`
+		type NameOrNum union {
+			| String "name"
+			| Int    "num"
+		} representation keyed
+	`,
+		"mytypes",
+		`
+		print(mytypes.NameOrNum(String="Alice"))
+	`, `union<NameOrNum>{string<String>{"Alice"}}
+`)
+
+	mustParseSchemaRunScriptAssertOutput(t,
+		`
+		type NameOrNum union {
+			| String "name"
+			| Int    "num"
+		} representation keyed
+	`,
+		"mytypes",
+		`
+		print(mytypes.NameOrNum(Int=42))
+	`, `union<NameOrNum>{int<Int>{42}}
+`)
+}
+
+// Test union construction using restructuring
+func TestUnionRestructuring(t *testing.T) {
+	mustParseSchemaRunScriptAssertOutput(t,
+		`
+		type NameOrNum union {
+			| String "name"
+			| Int    "num"
+		} representation keyed
+	`,
+		"mytypes",
+		`
+		print(mytypes.NameOrNum(_={"String": "Bob"}))
+	`, `union<NameOrNum>{string<String>{"Bob"}}
+`)
+
+	mustParseSchemaRunScriptAssertOutput(t,
+		`
+		type NameOrNum union {
+			| String "name"
+			| Int    "num"
+		} representation keyed
+	`,
+		"mytypes",
+		`
+		print(mytypes.NameOrNum(_={"Int": 42}))
+	`, `union<NameOrNum>{int<Int>{42}}
 `)
 }

@@ -28,7 +28,7 @@ Creating Union Values
 
 Unions can be created with kwargs:
 
-[testmark]:# (skipme/hello-unions/create/script.various/kwargs)
+[testmark]:# (hello-unions/hello-unions/create/script.various/kwargs)
 ```python
 print(mytypes.FooOrBar(Foo="valueOfTypeFoo"))
 ```
@@ -40,7 +40,7 @@ when interacting with the union value at the type level.)
 
 TODO: not yet supported.  Should look like the following:
 
-[testmark]:# (skipme/hello-unions/create/script.various/restructuring)
+[testmark]:# (hello-unions/hello-unions/create/script.various/restructuring)
 ```python
 print(mytypes.FooOrBar(_={"Foo":"valueOfTypeFoo"}))
 ```
@@ -52,9 +52,7 @@ because kwargs may be limited by starlark's syntax rules for the kwarg string).
 
 All the above syntaxes produce the same result:
 
-[testmark]:# (skipme/hello-unions/create/output)
+[testmark]:# (hello-unions/hello-unions/create/output)
 ```text
-union<FooOrBar>{
-	Foo: string<Foo>{"valueOfTypeFoo"}
-}
+union<FooOrBar>{string<Foo>{"valueOfTypeFoo"}}
 ```

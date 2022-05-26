@@ -168,6 +168,17 @@ func isUntypedMap(p *Prototype) bool {
 	return false
 }
 
+func getUnionRepr(p *Prototype) schema.UnionRepresentation {
+	if npt, ok := p.np.(schema.TypedPrototype); ok {
+		unionObj, ok := npt.Type().(*schema.TypeUnion)
+		if !ok {
+			return nil
+		}
+		return unionObj.RepresentationStrategy()
+	}
+	return nil
+}
+
 func getStructFields(p *Prototype) [][]string {
 	if npt, ok := p.np.(schema.TypedPrototype); ok {
 		structObj, ok := npt.Type().(*schema.TypeStruct)
@@ -231,6 +242,9 @@ func (p *Prototype) CallInternal(thread *starlark.Thread, args starlark.Tuple, k
 		return starlark.None, err
 	}
 
+	// TODO(dustmop): This code definitely needs to be cleaned up and refactored
+	// once enough tests are in place.
+
 	// Scalar values are easy
 	if isScalar(p) {
 		if !argseq.scalar {
@@ -256,7 +270,7 @@ func (p *Prototype) CallInternal(thread *starlark.Thread, args starlark.Tuple, k
 		if err != nil {
 			return starlark.None, err
 		}
-		for i, val := range argseq.vals {
+		for _, val := range argseq.vals {
 			if err := assembleVal(la.AssembleValue(), val); err != nil {
 				gotType := reflect.TypeOf(val).Name()
 				return starlark.None, fmt.Errorf("cannot create %s from %v of type %s", p.TypeName(), val, gotType)
@@ -324,9 +338,30 @@ func (p *Prototype) CallInternal(thread *starlark.Thread, args starlark.Tuple, k
 		return ToValue(nb.Build())
 	}
 
+	// Handle constructing a union
+	if repr := getUnionRepr(p); repr != nil {
+		npt, _ := p.np.(schema.TypedPrototype)
+		nb := npt.NewBuilder()
+		// TODO(dustmop): Assert that only 1 argument is supplied
+		ma, err := nb.BeginMap(int64(1))
+		for n, i := range argseq.names {
+			err = assembleVal(ma.AssembleKey(), starlark.String(n))
+			if err != nil {
+				return starlark.None, err
+			}
+			err = assembleVal(ma.AssembleValue(), argseq.vals[i])
+			if err != nil {
+				return starlark.None, err
+			}
+		}
+		if err := ma.Finish(); err != nil {
+			return starlark.None, err
+		}
+		return ToValue(nb.Build())
+	}
+
 	// Handle constructing a struct, always typed
-	fieldPairs := getStructFields(p)
-	if fieldPairs != nil {
+	if fieldPairs := getStructFields(p); fieldPairs != nil {
 		npt, _ := p.np.(schema.TypedPrototype)
 		nb := npt.NewBuilder()
 		ma, err := nb.BeginMap(int64(len(argseq.vals)))
