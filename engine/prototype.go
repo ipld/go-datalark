@@ -90,25 +90,33 @@ func buildArgSeq(args starlark.Tuple, kwargs []starlark.Tuple) (*ArgSeq, error) 
 		}
 		return argseq, nil
 	case len(kwargs) == 1 && asString(kwargs[0][0]) == "_":
-		// restructing
-		dict, ok := kwargs[0][1].(*starlark.Dict)
-		if !ok {
-			return nil, fmt.Errorf("restructing must use a dict of arguments")
-		}
-		keys := dict.Keys()
-		argseq.vals = make([]starlark.Value, len(keys))
-		argseq.ckey = make([]starlark.Value, len(keys))
-		argseq.names = make(map[string]int)
-		for i := 0; i < len(keys); i++ {
-			argseq.names[asString(keys[i])] = i
-			val, _, err := dict.Get(keys[i])
-			if err != nil {
-				return nil, err
+		// restructuring as a list
+		if list, ok := kwargs[0][1].(*starlark.List); ok {
+			size := list.Len()
+			argseq.vals = make([]starlark.Value, size)
+			for i := 0; i < size; i++ {
+				argseq.vals[i] = list.Index(i)
 			}
-			argseq.ckey[i] = keys[i]
-			argseq.vals[i] = val
+			return argseq, nil
 		}
-		return argseq, nil
+		// restructuring as a dict
+		if dict, ok := kwargs[0][1].(*starlark.Dict); ok {
+			keys := dict.Keys()
+			argseq.vals = make([]starlark.Value, len(keys))
+			argseq.ckey = make([]starlark.Value, len(keys))
+			argseq.names = make(map[string]int)
+			for i := 0; i < len(keys); i++ {
+				argseq.names[asString(keys[i])] = i
+				val, _, err := dict.Get(keys[i])
+				if err != nil {
+					return nil, err
+				}
+				argseq.ckey[i] = keys[i]
+				argseq.vals[i] = val
+			}
+			return argseq, nil
+		}
+		return nil, fmt.Errorf("restructuring must use a list or dict of arguments")
 	case len(kwargs) > 0:
 		// keyword args
 		argseq.vals = make([]starlark.Value, len(kwargs))
@@ -139,6 +147,14 @@ func asString(v starlark.Value) string {
 func isScalar(p *Prototype) bool {
 	switch p.np.(type) {
 	case basicnode.Prototype__Bool, basicnode.Prototype__Int, basicnode.Prototype__Float, basicnode.Prototype__String, basicnode.Prototype__Bytes:
+		return true
+	}
+	return false
+}
+
+func isList(p *Prototype) bool {
+	switch p.np.(type) {
+	case basicnode.Prototype__List:
 		return true
 	}
 	return false
@@ -225,6 +241,30 @@ func (p *Prototype) CallInternal(thread *starlark.Thread, args starlark.Tuple, k
 		if err := assembleVal(nb, val); err != nil {
 			gotType := reflect.TypeOf(val).Name()
 			return starlark.None, fmt.Errorf("cannot create %s from %v of type %s", p.TypeName(), val, gotType)
+		}
+		return ToValue(nb.Build())
+	}
+
+	// Handle constructing a list
+	if isList(p) {
+		nb := p.np.NewBuilder()
+		size := len(argseq.vals)
+		// TODO(dustmop): What if a dict or kwargs are provided? Is that an
+		// error, or are the key names just ignored? Figure it out and
+		// add a test case.
+		la, err := nb.BeginList(int64(size))
+		if err != nil {
+			return starlark.None, err
+		}
+		for i, val := range argseq.vals {
+			if err := assembleVal(la.AssembleValue(), val); err != nil {
+				gotType := reflect.TypeOf(val).Name()
+				return starlark.None, fmt.Errorf("cannot create %s from %v of type %s", p.TypeName(), val, gotType)
+			}
+		}
+		err = la.Finish()
+		if err != nil {
+			return starlark.None, err
 		}
 		return ToValue(nb.Build())
 	}
@@ -317,5 +357,5 @@ func (p *Prototype) CallInternal(thread *starlark.Thread, args starlark.Tuple, k
 		return ToValue(nb.Build())
 	}
 
-	return starlark.None, nil
+	return starlark.None, fmt.Errorf("constructor not implemented for %s", p.TypeName())
 }

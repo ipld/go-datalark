@@ -31,7 +31,7 @@ func ToValue(n datamodel.Node) (Value, error) {
 	case datamodel.Kind_Map:
 		return newMapValue(n), nil
 	case datamodel.Kind_List:
-		panic("IMPLEMENT ME!")
+		return newListValue(n), nil
 	case datamodel.Kind_Null:
 		panic("IMPLEMENT ME!")
 	case datamodel.Kind_Bool:
