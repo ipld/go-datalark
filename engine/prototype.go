@@ -144,11 +144,11 @@ func asString(v starlark.Value) string {
 	return v.String()
 }
 
-func getStructFieldNames(structObj *schema.TypeStruct) []string {
+func getStructFieldNames(structObj *schema.TypeStruct) []starlark.Value {
 	fields := structObj.Fields()
-	result := make([]string, 0, len(fields))
+	result := make([]starlark.Value, 0, len(fields))
 	for _, f := range fields {
-		result = append(result, f.Name())
+		result = append(result, starlark.String(f.Name()))
 	}
 	return result
 }
@@ -161,7 +161,7 @@ func rangeUpTo(n int) []int {
 	return res
 }
 
-func unifyTraversalOrder(argseq* ArgSeq, fieldNames []string) []int {
+func unifyTraversalOrder(argseq* ArgSeq, fieldNames []starlark.Value) []int {
 	if argseq.names == nil {
 		return nil
 	}
@@ -174,7 +174,7 @@ func unifyTraversalOrder(argseq* ArgSeq, fieldNames []string) []int {
 		//   args   (b='banana', c='cherry', a='apple')
 		//   fields (a, b, c)
 		// res = [2, 0, 1]
-		pos := argseq.names[name]
+		pos := argseq.names[asString(name)]
 		res[i] = pos
 	}
 	return res
@@ -196,67 +196,58 @@ func constructNewValue(p *Prototype, argseq *ArgSeq) (starlark.Value, error) {
 	if tp, ok := p.np.(schema.TypedPrototype); ok {
 		// construct a Typed value, such as a type-specific map or union or struct
 
+		// state for how to construct each possible type
+		var argOrder []int
+		var fieldNames []starlark.Value
+
+		switch it := tp.Type().(type) {
+		case *schema.TypeMap:
+			// typed map might be using complex keys
+			fieldNames = argseq.ckey
+
+		case *schema.TypeUnion:
+			// union should only have 1 key in its map
+			if len(argseq.vals) != 1 || len(argseq.names) != 1 {
+				return starlark.None, fmt.Errorf("union must be given a map with only 1 key")
+			}
+			fieldNames = make([]starlark.Value, len(argseq.names))
+			for n := range argseq.names {
+				fieldNames[0] = starlark.String(n)
+			}
+
+		case *schema.TypeStruct:
+			// struct has field names in its type
+			fieldNames = getStructFieldNames(it)
+			// determine the order to apply the arguments
+			argOrder = unifyTraversalOrder(argseq, fieldNames)
+
+		default:
+			return starlark.None, fmt.Errorf("unknown type: %T", it)
+		}
+
+		// ensure traversal order and field names have valid data
+		if argOrder == nil {
+			argOrder = rangeUpTo(len(argseq.vals))
+		}
+		if len(argseq.vals) != len(fieldNames) {
+			return starlark.None, fmt.Errorf("field length mismatch: %d != %d", len(argseq.vals), len(fieldNames))
+		}
+
+		// assemble the map from our given order, fields, and values
 		ma, err := nb.BeginMap(int64(len(argseq.vals)))
 		if err != nil {
 			return starlark.None, err
 		}
-
-		switch it := tp.Type().(type) {
-		case *schema.TypeMap:
-			// construct a typed map
-			for i, v := range argseq.vals {
-				compoundKey := argseq.ckey[i]
-				err := assembleVal(ma.AssembleKey(), compoundKey)
-				if err != nil {
-					return starlark.None, err
-				}
-				err = assembleVal(ma.AssembleValue(), v)
-				if err != nil {
-					return starlark.None, err
-				}
-			}
-		case *schema.TypeUnion:
-			// construct a union
-			if len(argseq.vals) != 1 {
-				return starlark.None, fmt.Errorf("union must be given a map with only 1 key")
-			}
-			for n, i := range argseq.names {
-				err = assembleVal(ma.AssembleKey(), starlark.String(n))
-				if err != nil {
-					return starlark.None, err
-				}
-				err = assembleVal(ma.AssembleValue(), argseq.vals[i])
-				if err != nil {
-					return starlark.None, err
-				}
-			}
-			if err := ma.Finish(); err != nil {
+		for i, j := range argOrder {
+			err := assembleVal(ma.AssembleKey(), fieldNames[i])
+			if err != nil {
 				return starlark.None, err
 			}
-
-		case *schema.TypeStruct:
-			// construct a struct
-			fieldNames := getStructFieldNames(it)
-
-			// determine the order to apply the arguments
-			argOrder := unifyTraversalOrder(argseq, fieldNames)
-			if argOrder == nil {
-				argOrder = rangeUpTo(len(argseq.vals))
-			}
-
-			// apply each argument by using its value to assemble a field
-			for i, j := range argOrder {
-				err := assembleVal(ma.AssembleKey(), starlark.String(fieldNames[i]))
-				if err != nil {
-					return starlark.None, err
-				}
-				err = assembleVal(ma.AssembleValue(), argseq.vals[j])
-				if err != nil {
-					return starlark.None, err
-				}
+			err = assembleVal(ma.AssembleValue(), argseq.vals[j])
+			if err != nil {
+				return starlark.None, err
 			}
 		}
-
 		if err := ma.Finish(); err != nil {
 			return starlark.None, err
 		}
