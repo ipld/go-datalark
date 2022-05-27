@@ -144,65 +144,32 @@ func asString(v starlark.Value) string {
 	return v.String()
 }
 
-func isScalar(p *Prototype) bool {
-	switch p.np.(type) {
-	case basicnode.Prototype__Bool, basicnode.Prototype__Int, basicnode.Prototype__Float, basicnode.Prototype__String, basicnode.Prototype__Bytes:
-		return true
+
+func getUnionRepr(tp schema.TypedPrototype) schema.UnionRepresentation {
+	unionObj, ok := tp.Type().(*schema.TypeUnion)
+	if !ok {
+		return nil
 	}
-	return false
+	return unionObj.RepresentationStrategy()
 }
 
-func isList(p *Prototype) bool {
-	switch p.np.(type) {
-	case basicnode.Prototype__List:
-		return true
+func getStructFields(tp schema.TypedPrototype) [][]string {
+	structObj, ok := tp.Type().(*schema.TypeStruct)
+	if !ok {
+		return nil
 	}
-	return false
+	fields := structObj.Fields()
+	result := make([][]string, 0, len(fields))
+	for _, f := range fields {
+		pair := []string{f.Name(), f.Type().Name()}
+		result = append(result, pair)
+	}
+	return result
 }
 
-func isUntypedMap(p *Prototype) bool {
-	switch p.np.(type) {
-	case basicnode.Prototype__Map:
-		return true
-	}
-	return false
-}
-
-func getUnionRepr(p *Prototype) schema.UnionRepresentation {
-	if npt, ok := p.np.(schema.TypedPrototype); ok {
-		unionObj, ok := npt.Type().(*schema.TypeUnion)
-		if !ok {
-			return nil
-		}
-		return unionObj.RepresentationStrategy()
-	}
-	return nil
-}
-
-func getStructFields(p *Prototype) [][]string {
-	if npt, ok := p.np.(schema.TypedPrototype); ok {
-		structObj, ok := npt.Type().(*schema.TypeStruct)
-		if !ok {
-			return nil
-		}
-		fields := structObj.Fields()
-		result := make([][]string, 0, len(fields))
-		for _, f := range fields {
-			pair := []string{f.Name(), f.Type().Name()}
-			result = append(result, pair)
-		}
-		return result
-	}
-	return nil
-}
-
-func isTypedMap(p *Prototype) bool {
-	if npt, ok := p.np.(schema.TypedPrototype); ok {
-		if _, ok := npt.Type().(*schema.TypeMap); ok {
-			return true
-		}
-	}
-	return false
+func isTypedMap(tp schema.TypedPrototype) bool {
+	_, ok := tp.Type().(*schema.TypeMap)
+	return ok
 }
 
 func unifyTraversalOrder(argseq* ArgSeq, fieldPairs [][]string) []int {
@@ -242,27 +209,101 @@ func (p *Prototype) CallInternal(thread *starlark.Thread, args starlark.Tuple, k
 		return starlark.None, err
 	}
 
-	// TODO(dustmop): This code definitely needs to be cleaned up and refactored
-	// once enough tests are in place.
+	return constructNewValue(p, argseq)
+}
 
-	// Scalar values are easy
-	if isScalar(p) {
-		if !argseq.scalar {
-			return starlark.None, fmt.Errorf("TODO: better error")
+func constructNewValue(p *Prototype, argseq *ArgSeq) (starlark.Value, error) {
+	nb := p.np.NewBuilder()
+	if tp, ok := p.np.(schema.TypedPrototype); ok {
+		// construct a Typed value, such as a type-specific map or union or struct
+
+		if isTypedMap(tp) {
+			// construct a typed map
+			ma, err := nb.BeginMap(int64(len(argseq.vals)))
+			if err != nil {
+				return starlark.None, err
+			}
+			for i, v := range argseq.vals {
+				compoundKey := argseq.ckey[i]
+				err := assembleVal(ma.AssembleKey(), compoundKey)
+				if err != nil {
+					return starlark.None, err
+				}
+				err = assembleVal(ma.AssembleValue(), v)
+				if err != nil {
+					return starlark.None, err
+				}
+			}
+			if err := ma.Finish(); err != nil {
+				return starlark.None, err
+			}
 		}
-		nb := p.np.NewBuilder()
+
+		if repr := getUnionRepr(tp); repr != nil {
+			// construct a union
+			// TODO(dustmop): Assert that only 1 argument is supplied
+			ma, err := nb.BeginMap(int64(1))
+			for n, i := range argseq.names {
+				err = assembleVal(ma.AssembleKey(), starlark.String(n))
+				if err != nil {
+					return starlark.None, err
+				}
+				err = assembleVal(ma.AssembleValue(), argseq.vals[i])
+				if err != nil {
+					return starlark.None, err
+				}
+			}
+			if err := ma.Finish(); err != nil {
+				return starlark.None, err
+			}
+		}
+
+		if fieldPairs := getStructFields(tp); fieldPairs != nil {
+			// construct a struct
+			ma, err := nb.BeginMap(int64(len(argseq.vals)))
+			if err != nil {
+				return starlark.None, err
+			}
+
+			// determine the order to apply the arguments
+			argOrder := unifyTraversalOrder(argseq, fieldPairs)
+
+			// apply each argument by using its value to assemble a field
+			for i, j := range argOrder {
+				v := argseq.vals[j]
+				fieldName := fieldPairs[i][0]
+				err := assembleVal(ma.AssembleKey(), starlark.String(fieldName))
+				if err != nil {
+					return starlark.None, err
+				}
+				err = assembleVal(ma.AssembleValue(), v)
+				if err != nil {
+					return starlark.None, err
+				}
+			}
+			if err := ma.Finish(); err != nil {
+				return starlark.None, err
+			}
+		}
+
+		return ToValue(nb.Build())
+	}
+
+	switch p.np.(type) {
+	case basicnode.Prototype__Bool, basicnode.Prototype__Int, basicnode.Prototype__Float, basicnode.Prototype__String, basicnode.Prototype__Bytes:
+		// scalar value being constucted
+		if !argseq.scalar {
+			return starlark.None, fmt.Errorf("wrong arguments for scalar constructor")
+		}
 		val := argseq.vals[0]
 		if err := assembleVal(nb, val); err != nil {
 			gotType := reflect.TypeOf(val).Name()
 			return starlark.None, fmt.Errorf("cannot create %s from %v of type %s", p.TypeName(), val, gotType)
 		}
-		return ToValue(nb.Build())
-	}
 
-	// Handle constructing a list
-	if isList(p) {
-		nb := p.np.NewBuilder()
+	case basicnode.Prototype__List:
 		size := len(argseq.vals)
+		// list value being constructed
 		// TODO(dustmop): What if a dict or kwargs are provided? Is that an
 		// error, or are the key names just ignored? Figure it out and
 		// add a test case.
@@ -276,20 +317,15 @@ func (p *Prototype) CallInternal(thread *starlark.Thread, args starlark.Tuple, k
 				return starlark.None, fmt.Errorf("cannot create %s from %v of type %s", p.TypeName(), val, gotType)
 			}
 		}
-		err = la.Finish()
-		if err != nil {
+		if err := la.Finish(); err != nil {
 			return starlark.None, err
 		}
-		return ToValue(nb.Build())
-	}
 
-	// Handle constructing an untyped map
-	if isUntypedMap(p) {
+	case basicnode.Prototype__Map:
+		// untyped map being constructed
 		if argseq.names == nil {
-			// TODO(dustmop): Better error message
 			return starlark.None, fmt.Errorf("no names for arguments")
 		}
-		nb := p.np.NewBuilder()
 		ma, err := nb.BeginMap(int64(len(argseq.vals)))
 		if err != nil {
 			return starlark.None, err
@@ -306,91 +342,10 @@ func (p *Prototype) CallInternal(thread *starlark.Thread, args starlark.Tuple, k
 		if err := ma.Finish(); err != nil {
 			return starlark.None, err
 		}
-		return ToValue(nb.Build())
+
+	default:
+		return starlark.None, fmt.Errorf("unknown type %T", p.np)
 	}
 
-	// Handle constructing a typed map
-	if isTypedMap(p) {
-		// TODO(dustmop): Somewhat of a hack, this block is almost identical
-		// to the other two, and exists to handle the case of a map with struct
-		// values for keys (see Example_mapWithStructKeys). It should be refactored
-		// and combined with one or both of the other blocks.
-		npt, _ := p.np.(schema.TypedPrototype)
-		nb := npt.NewBuilder()
-		ma, err := nb.BeginMap(int64(len(argseq.vals)))
-		if err != nil {
-			return starlark.None, err
-		}
-		for i, v := range argseq.vals {
-			compoundKey := argseq.ckey[i]
-			err := assembleVal(ma.AssembleKey(), compoundKey)
-			if err != nil {
-				return starlark.None, err
-			}
-			err = assembleVal(ma.AssembleValue(), v)
-			if err != nil {
-				return starlark.None, err
-			}
-		}
-		if err := ma.Finish(); err != nil {
-			return starlark.None, err
-		}
-		return ToValue(nb.Build())
-	}
-
-	// Handle constructing a union
-	if repr := getUnionRepr(p); repr != nil {
-		npt, _ := p.np.(schema.TypedPrototype)
-		nb := npt.NewBuilder()
-		// TODO(dustmop): Assert that only 1 argument is supplied
-		ma, err := nb.BeginMap(int64(1))
-		for n, i := range argseq.names {
-			err = assembleVal(ma.AssembleKey(), starlark.String(n))
-			if err != nil {
-				return starlark.None, err
-			}
-			err = assembleVal(ma.AssembleValue(), argseq.vals[i])
-			if err != nil {
-				return starlark.None, err
-			}
-		}
-		if err := ma.Finish(); err != nil {
-			return starlark.None, err
-		}
-		return ToValue(nb.Build())
-	}
-
-	// Handle constructing a struct, always typed
-	if fieldPairs := getStructFields(p); fieldPairs != nil {
-		npt, _ := p.np.(schema.TypedPrototype)
-		nb := npt.NewBuilder()
-		ma, err := nb.BeginMap(int64(len(argseq.vals)))
-		if err != nil {
-			return starlark.None, err
-		}
-
-		// Determine the order to apply the arguments
-		argOrder := unifyTraversalOrder(argseq, fieldPairs)
-
-		// Apply each argument by using its value to assemble a field
-		for i, j := range argOrder {
-			v := argseq.vals[j]
-			fieldName := fieldPairs[i][0]
-			err := assembleVal(ma.AssembleKey(), starlark.String(fieldName))
-			if err != nil {
-				return starlark.None, err
-			}
-			err = assembleVal(ma.AssembleValue(), v)
-			if err != nil {
-				// TODO(dustmop): accumulate errors instead
-				return starlark.None, err
-			}
-		}
-		if err := ma.Finish(); err != nil {
-			return starlark.None, err
-		}
-		return ToValue(nb.Build())
-	}
-
-	return starlark.None, fmt.Errorf("constructor not implemented for %s", p.TypeName())
+	return ToValue(nb.Build())
 }
