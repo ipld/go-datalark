@@ -33,7 +33,8 @@ print(m)
 
 }
 
-// Test map construction using kwargs
+// Test map construction using kwargs, resulting stringified value
+// has deterministic key order
 func TestMapKwargs(t *testing.T) {
 	stdout, err := runScript(nil, "", `
 m = datalark.Map(a="apple", b="banana")
@@ -43,19 +44,12 @@ print(m)
 		t.Fatal(err)
 	}
 
-	// Unfortunately, map stringification is non-deterministic, so both
-	// possibilities are checked here.
-	expect1 := `map{
+	expect := `map{
 	string{"a"}: string{"apple"}
 	string{"b"}: string{"banana"}
 }
 `
-	expect2 := `map{
-	string{"b"}: string{"banana"}
-	string{"a"}: string{"apple"}
-}
-`
-	if stdout != expect1 && stdout != expect2 {
+	if stdout != expect {
 		t.Errorf("unexpected output: %v", stdout)
 	}
 }

@@ -65,12 +65,15 @@ func (p *Prototype) Name() string {
 // sequence may or may not also have a mapping from argument names to positions,
 // as is the case for keyword args or for restructured args
 type ArgSeq struct {
-	vals   []starlark.Value
+	vals []starlark.Value
 	// ckey is used to store compound keys, such as a typed map with a
 	// struct for a key. It is somewhat of a hack, intended to fix the
 	// test `Example_mapWithStructKeys`. Ideally it shouldn't be needed.
-	ckey   []starlark.Value
-	names  map[string]int
+	ckey []starlark.Value
+	// names is the ordered list of named keys, and assoc stores a mapping
+	// from those names to the indexes of the arguments
+	names  []string
+	assoc  map[string]int
 	scalar bool
 }
 
@@ -104,9 +107,11 @@ func buildArgSeq(args starlark.Tuple, kwargs []starlark.Tuple) (*ArgSeq, error) 
 			keys := dict.Keys()
 			argseq.vals = make([]starlark.Value, len(keys))
 			argseq.ckey = make([]starlark.Value, len(keys))
-			argseq.names = make(map[string]int)
+			argseq.names = make([]string, len(keys))
+			argseq.assoc = make(map[string]int)
 			for i := 0; i < len(keys); i++ {
-				argseq.names[asString(keys[i])] = i
+				argseq.names[i] = asString(keys[i])
+				argseq.assoc[asString(keys[i])] = i
 				val, _, err := dict.Get(keys[i])
 				if err != nil {
 					return nil, err
@@ -121,9 +126,11 @@ func buildArgSeq(args starlark.Tuple, kwargs []starlark.Tuple) (*ArgSeq, error) 
 		// keyword args
 		argseq.vals = make([]starlark.Value, len(kwargs))
 		argseq.ckey = make([]starlark.Value, len(kwargs))
-		argseq.names = make(map[string]int)
+		argseq.names = make([]string, len(kwargs))
+		argseq.assoc = make(map[string]int)
 		for i := 0; i < len(kwargs); i++ {
-			argseq.names[asString(kwargs[i][0])] = i
+			argseq.names[i] = asString(kwargs[i][0])
+			argseq.assoc[asString(kwargs[i][0])] = i
 			argseq.ckey[i] = kwargs[i][0]
 			argseq.vals[i] = kwargs[i][1]
 		}
@@ -161,8 +168,8 @@ func rangeUpTo(n int) []int {
 	return res
 }
 
-func unifyTraversalOrder(argseq* ArgSeq, fieldNames []starlark.Value) []int {
-	if argseq.names == nil {
+func unifyTraversalOrder(argseq *ArgSeq, fieldNames []starlark.Value) []int {
+	if argseq.assoc == nil {
 		return nil
 	}
 	res := make([]int, len(fieldNames))
@@ -174,8 +181,7 @@ func unifyTraversalOrder(argseq* ArgSeq, fieldNames []starlark.Value) []int {
 		//   args   (b='banana', c='cherry', a='apple')
 		//   fields (a, b, c)
 		// res = [2, 0, 1]
-		pos := argseq.names[asString(name)]
-		res[i] = pos
+		res[i] = argseq.assoc[asString(name)]
 	}
 	return res
 }
@@ -207,13 +213,11 @@ func constructNewValue(p *Prototype, argseq *ArgSeq) (starlark.Value, error) {
 
 		case *schema.TypeUnion:
 			// union should only have 1 key in its map
-			if len(argseq.vals) != 1 || len(argseq.names) != 1 {
+			if len(argseq.names) != 1 {
 				return starlark.None, fmt.Errorf("union must be given a map with only 1 key")
 			}
-			fieldNames = make([]starlark.Value, len(argseq.names))
-			for n := range argseq.names {
-				fieldNames[0] = starlark.String(n)
-			}
+			fieldNames = make([]starlark.Value, 1)
+			fieldNames[0] = starlark.String(argseq.names[0])
 
 		case *schema.TypeStruct:
 			// struct has field names in its type
@@ -239,12 +243,10 @@ func constructNewValue(p *Prototype, argseq *ArgSeq) (starlark.Value, error) {
 			return starlark.None, err
 		}
 		for i, j := range argOrder {
-			err := assembleVal(ma.AssembleKey(), fieldNames[i])
-			if err != nil {
+			if err := assembleVal(ma.AssembleKey(), fieldNames[i]); err != nil {
 				return starlark.None, err
 			}
-			err = assembleVal(ma.AssembleValue(), argseq.vals[j])
-			if err != nil {
+			if err = assembleVal(ma.AssembleValue(), argseq.vals[j]); err != nil {
 				return starlark.None, err
 			}
 		}
@@ -296,8 +298,10 @@ func constructNewValue(p *Prototype, argseq *ArgSeq) (starlark.Value, error) {
 		if err != nil {
 			return starlark.None, err
 		}
-		for n, i := range argseq.names {
-			v := argseq.vals[i]
+		// iterate over the names in a deterministic order, if this instead
+		// used `range argseq.assoc` it would *not* be deterministic
+		for _, n := range argseq.names {
+			v := argseq.vals[argseq.assoc[n]]
 			if err := assembleVal(ma.AssembleKey(), starlark.String(n)); err != nil {
 				return starlark.None, err
 			}
