@@ -48,13 +48,12 @@ func (v *mapValue) Hash() (uint32, error) {
 //   d['a'] # calls d.Get('a')
 //
 func (v *mapValue) Get(in starlark.Value) (out starlark.Value, found bool, err error) {
-	if _, ok := in.(Value); ok {
-		// TODO: unbox it and use LookupByNode.
+	keyStr, ok := in.(starlark.String)
+	if !ok {
+		return starlark.None, false, fmt.Errorf("cannot index map using %v of type %T", in, in)
 	}
-	// TODO: coerce to string?  (don't use the String method, it's a printer, not what want.)
-	// TODO: it has now become high time to standardize the "not found" errors from the Node API!
-	ks := in.String() // FIXME placeholder; objectively and clearly wrong.
-	n, err := v.node.LookupByString(ks)
+	key := string(keyStr)
+	n, err := v.node.LookupByString(key)
 	if err != nil {
 		return nil, false, err
 	}
