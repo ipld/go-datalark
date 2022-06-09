@@ -41,3 +41,20 @@ func TestStructUnordered(t *testing.T) {
 		}
 	`)
 }
+
+func TestStructFieldAccess(t *testing.T) {
+	mustParseSchemaRunScriptAssertOutput(t,
+		`
+		type FooBar struct {
+			foo String
+			bar String
+		}
+	`,
+		"mytypes",
+		`
+		f = mytypes.FooBar(foo="one", bar="two")
+		print(f.foo)
+	`, `
+		string<String>{"one"}
+	`)
+}

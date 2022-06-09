@@ -60,6 +60,7 @@ func testFixtureHelper(t *testing.T, dir testmark.DirEnt, patches *testmark.Patc
 	//    (Technically, you can recurse, too, but I don't see why you'd want to.)
 	switch {
 	case dir.Children["script"] != nil:
+		// TODO(dustmop): This panics if Hunk is empty!
 		output, err := runScript(defines, "mytypes", string(dir.Children["script"].Hunk.Body))
 		if err != nil {
 			t.Fatalf("script eval failed: %s", err) // TODO probably actually just append this to the buffer for diffing

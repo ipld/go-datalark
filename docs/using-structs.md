@@ -131,3 +131,29 @@ struct<Frob>{
 	}
 }
 ```
+
+Using Struct Values
+----------------------
+
+Struct values can access their fields using the familiar doc notation used by regular python code.
+
+[testmark]:# (access-structs/schema)
+```ipldsch
+type FooBar struct {
+	foo String
+	bar String
+}
+```
+
+[testmark]:# (access-structs/access/script.various/use-field)
+```python
+obj = mytypes.FooBar(foo='abc', bar='def')
+print(obj.foo)
+```
+
+As expected, this outputs the value of the struct field
+
+[testmark]:# (access-structs/access/output)
+```text
+string<String>{"abc"}
+```
