@@ -25,6 +25,7 @@ type basicValue struct {
 
 var _ Value = (*basicValue)(nil)
 var _ starlark.HasBinary = (*basicValue)(nil)
+var _ starlark.HasAttrs = (*basicValue)(nil)
 
 func newBasicValue(node datamodel.Node, kind datamodel.Kind) Value {
 	if kind != datamodel.Kind_Null &&
@@ -193,4 +194,43 @@ func (v *basicValue) binaryBasicOp(op syntax.Token, other *basicValue) (starlark
 		}
 	}
 	return starlark.None, fmt.Errorf("cannot apply op %s to %T and %T", op, v, other)
+}
+
+var stringMethods = []string{"capitalize", "count", "elems", "endswith", "find", "format",
+	"index", "isalnum", "isalpha", "isdigit", "islower", "isspace", "istitle", "isupper",
+	"join", "lower", "lstrip", "partition", "replace", "rfind", "rindex", "rpartition",
+	"rsplit", "rstrip", "split", "splitlines", "startswith", "strip", "title", "upper"}
+
+func (v *basicValue) Attr(name string) (starlark.Value, error) {
+	fmt.Printf("basicValue.Attr %v\n", name)
+	if v.kind != datamodel.Kind_String {
+		return starlark.None, fmt.Errorf("%T has no %s field or method", v, name)
+	}
+	str, err := v.node.AsString()
+	if err != nil {
+		return starlark.None, err
+	}
+	strVal := starlark.String(str)
+	method := func(thread *starlark.Thread, b *starlark.Builtin, args starlark.Tuple, kwargs []starlark.Tuple) (starlark.Value, error) {
+		method, err := strVal.Attr(name)
+		if err != nil {
+			return starlark.None, err
+		}
+		// Call it, and ensure the result is a DataFrame
+		res, err := starlark.Call(thread, method, args, kwargs)
+		if err != nil {
+			return starlark.None, err
+		}
+		if strVal, ok := res.(starlark.String); ok {
+			return NewString(string(strVal)), nil
+		}
+		// TODO: Convert other starlark.Value types into datalark.Value
+		// This should be a common utility function
+		return res, nil
+	}
+	return starlark.NewBuiltin(name, method), nil
+}
+
+func (v *basicValue) AttrNames() []string {
+	return stringMethods
 }

@@ -8,7 +8,7 @@ tests like this.
 
 [testmark]:# (hello-numbers/schema)
 ```ipldsch
-type FruitColors {String:String}
+type RemoveMe {String:String}
 ```
 
 [testmark]:# (hello-numbers/hello-numbers/int/script.various/kwargs)
@@ -37,6 +37,8 @@ e = d - a
 f = e / 2.6
 print(f)
 ```
+
+TODO: testmark should have a almost-equals comparator for floats
 
 [testmark]:# (hello-numbers/hello-numbers/float/output)
 ```text
