@@ -7,7 +7,9 @@ import (
 	"github.com/ipld/go-ipld-prime/node/basicnode"
 	"github.com/ipld/go-ipld-prime/printer"
 	"github.com/ipld/go-ipld-prime/schema"
+
 	"go.starlark.net/starlark"
+	"go.starlark.net/syntax"
 )
 
 type Value interface {
@@ -22,6 +24,7 @@ type basicValue struct {
 }
 
 var _ Value = (*basicValue)(nil)
+var _ starlark.HasBinary = (*basicValue)(nil)
 
 func newBasicValue(node datamodel.Node, kind datamodel.Kind) Value {
 	if kind != datamodel.Kind_Null &&
@@ -125,4 +128,43 @@ func NewLink(x datamodel.Link) Value {
 		panic(err)
 	}
 	return newBasicValue(nb.Build(), datamodel.Kind_Link)
+}
+
+func (v *basicValue) Binary(op syntax.Token, y starlark.Value, side starlark.Side) (starlark.Value, error) {
+	if op == syntax.PLUS || op == syntax.MINUS || op == syntax.STAR || op == syntax.SLASH {
+		if other, ok := y.(*basicValue); ok {
+			return v.binaryBasicOp(op, other)
+		}
+		if _, ok := y.(starlark.Int); ok {
+			num, err := starlark.AsInt32(y)
+			if err != nil {
+				return starlark.None, err
+			}
+			return v.binaryBasicOp(op, NewInt(int64(num)).(*basicValue))
+		}
+	}
+	return starlark.None, fmt.Errorf("cannot %T %s %T", v, op, y)
+}
+
+func (v *basicValue) binaryBasicOp(op syntax.Token, other *basicValue) (starlark.Value, error) {
+	if v.kind == datamodel.Kind_Int && other.kind == datamodel.Kind_Int {
+		left, err := v.node.AsInt()
+		if err != nil {
+			return starlark.None, err
+		}
+		rite, err := other.node.AsInt()
+		if err != nil {
+			return starlark.None, err
+		}
+		if op == syntax.PLUS {
+			return NewInt(left + rite), nil
+		} else if op == syntax.MINUS {
+			return NewInt(left - rite), nil
+		} else if op == syntax.STAR {
+			return NewInt(left * rite), nil
+		} else if op == syntax.SLASH {
+			return NewInt(left / rite), nil
+		}
+	}
+	return starlark.None, fmt.Errorf("cannot add %T and %T", v, other)
 }
