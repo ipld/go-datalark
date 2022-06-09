@@ -142,6 +142,13 @@ func (v *basicValue) Binary(op syntax.Token, y starlark.Value, side starlark.Sid
 			}
 			return v.binaryBasicOp(op, NewInt(int64(num)).(*basicValue))
 		}
+		if _, ok := y.(starlark.Float); ok {
+			f, ok := starlark.AsFloat(y)
+			if !ok {
+				return starlark.None, fmt.Errorf("could not convert %s to float", y)
+			}
+			return v.binaryBasicOp(op, NewFloat(float64(f)).(*basicValue))
+		}
 	}
 	return starlark.None, fmt.Errorf("cannot %T %s %T", v, op, y)
 }
@@ -166,5 +173,24 @@ func (v *basicValue) binaryBasicOp(op syntax.Token, other *basicValue) (starlark
 			return NewInt(left / rite), nil
 		}
 	}
-	return starlark.None, fmt.Errorf("cannot add %T and %T", v, other)
+	if v.kind == datamodel.Kind_Float && other.kind == datamodel.Kind_Float {
+		left, err := v.node.AsFloat()
+		if err != nil {
+			return starlark.None, err
+		}
+		rite, err := other.node.AsFloat()
+		if err != nil {
+			return starlark.None, err
+		}
+		if op == syntax.PLUS {
+			return NewFloat(left + rite), nil
+		} else if op == syntax.MINUS {
+			return NewFloat(left - rite), nil
+		} else if op == syntax.STAR {
+			return NewFloat(left * rite), nil
+		} else if op == syntax.SLASH {
+			return NewFloat(left / rite), nil
+		}
+	}
+	return starlark.None, fmt.Errorf("cannot apply op %s to %T and %T", op, v, other)
 }

@@ -11,7 +11,7 @@ tests like this.
 type FruitColors {String:String}
 ```
 
-[testmark]:# (hello-numbers/hello-numbers/create/script.various/kwargs)
+[testmark]:# (hello-numbers/hello-numbers/int/script.various/kwargs)
 ```python
 a = datalark.Int(3)
 b = datalark.Int(4)
@@ -22,7 +22,23 @@ f = e / 2
 print(f)
 ```
 
-[testmark]:# (hello-numbers/hello-numbers/create/output)
+[testmark]:# (hello-numbers/hello-numbers/int/output)
 ```text
 int{23}
+```
+
+[testmark]:# (hello-numbers/hello-numbers/float/script.various/kwargs)
+```python
+a = datalark.Float(3.1)
+b = datalark.Float(5.2)
+c = a + b
+d = c * 7.8
+e = d - a
+f = e / 2.6
+print(f)
+```
+
+[testmark]:# (hello-numbers/hello-numbers/float/output)
+```text
+float{23.70769230769231}
 ```
