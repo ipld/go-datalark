@@ -2,6 +2,8 @@ package datalarkengine
 
 import (
 	"bytes"
+	"fmt"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -14,6 +16,8 @@ import (
 
 // n.b. yes there's a reason it uses filename and not a stream; it's so the patcher can work.
 func testFixture(t *testing.T, filename string) {
+	// TODO(dustmop): Accessor on testmark.Document that gets the basename (for better errors)
+	sourceName := filepath.Base(filename)
 	doc, err := testmark.ReadFile(filename)
 	if err != nil {
 		t.Fatalf("spec file parse failed?!: %s", err)
@@ -47,12 +51,12 @@ func testFixture(t *testing.T, filename string) {
 			}
 
 			// The rest of the processing is in a helper function because it may be recursive (all using the same schema).
-			testFixtureHelper(t, dir, &patches, npts)
+			testFixtureHelper(t, dir, doc, sourceName, &patches, npts)
 		})
 	}
 }
 
-func testFixtureHelper(t *testing.T, dir testmark.DirEnt, patches *testmark.PatchAccumulator, defines []schema.TypedPrototype) {
+func testFixtureHelper(t *testing.T, dir testmark.DirEnt, doc *testmark.Document, sourceName string, patches *testmark.PatchAccumulator, defines []schema.TypedPrototype) {
 	// There should be one of:
 	// - a "script" hunk (with an "output" sibling);
 	// - or a "script.various" hunk, with multiple children (with an "output" sibling);
@@ -60,10 +64,13 @@ func testFixtureHelper(t *testing.T, dir testmark.DirEnt, patches *testmark.Patc
 	//    (Technically, you can recurse, too, but I don't see why you'd want to.)
 	switch {
 	case dir.Children["script"] != nil:
-		// TODO(dustmop): This panics if Hunk is empty!
-		output, err := runScript(defines, "mytypes", string(dir.Children["script"].Hunk.Body))
+		scriptHunk := dir.Children["script"].Hunk
+		if scriptHunk == nil {
+			t.Fatal("empty hunk found")
+		}
+		output, err := runScript(defines, "mytypes", string(scriptHunk.Body))
 		if err != nil {
-			t.Fatalf("script eval failed: %s", err) // TODO probably actually just append this to the buffer for diffing
+			t.Fatal(makeTestmarkError(doc, sourceName, scriptHunk, err))
 		}
 
 		if *testmark.Regen {
@@ -79,7 +86,7 @@ func testFixtureHelper(t *testing.T, dir testmark.DirEnt, patches *testmark.Patc
 			t.Run(script.Name, func(t *testing.T) {
 				output, err := runScript(defines, "mytypes", string(script.Hunk.Body))
 				if err != nil {
-					t.Fatalf("script eval failed: %s", err) // TODO probably actually just append this to the buffer for diffing
+					t.Fatal(makeTestmarkError(doc, sourceName, script.Hunk, err))
 				}
 
 				if *testmark.Regen {
@@ -105,8 +112,16 @@ func testFixtureHelper(t *testing.T, dir testmark.DirEnt, patches *testmark.Patc
 	default:
 		for _, dir := range dir.ChildrenList {
 			t.Run(dir.Name, func(t *testing.T) {
-				testFixtureHelper(t, dir, patches, defines)
+				testFixtureHelper(t, dir, doc, sourceName, patches, defines)
 			})
 		}
 	}
+}
+
+func makeTestmarkError(doc *testmark.Document, sourceName string, scriptHunk *testmark.Hunk, err error) error {
+	dh, ok := doc.HunksByName[scriptHunk.Name]
+	if !ok {
+		fmt.Errorf("error %s:<unknown>: %w", sourceName, err)
+	}
+	return fmt.Errorf("error %s:%d: %w", sourceName, dh.LineStart, err)
 }
