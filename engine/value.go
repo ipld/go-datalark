@@ -202,7 +202,6 @@ var stringMethods = []string{"capitalize", "count", "elems", "endswith", "find",
 	"rsplit", "rstrip", "split", "splitlines", "startswith", "strip", "title", "upper"}
 
 func (v *basicValue) Attr(name string) (starlark.Value, error) {
-	fmt.Printf("basicValue.Attr %v\n", name)
 	if v.kind != datamodel.Kind_String {
 		return starlark.None, fmt.Errorf("%T has no %s field or method", v, name)
 	}

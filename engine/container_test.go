@@ -137,6 +137,35 @@ func TestUnionKwargs(t *testing.T) {
 `)
 }
 
+// Test union construction using positional arg
+func TestUnionPositional(t *testing.T) {
+	mustParseSchemaRunScriptAssertOutput(t,
+		`
+		type NameOrNum union {
+			| String "name"
+			| Int    "num"
+		} representation keyed
+	`,
+		"mytypes",
+		`
+		print(mytypes.NameOrNum("Alice"))
+	`, `union<NameOrNum>{string<String>{"Alice"}}
+`)
+
+	mustParseSchemaRunScriptAssertOutput(t,
+		`
+		type NameOrNum union {
+			| String "name"
+			| Int    "num"
+		} representation keyed
+	`,
+		"mytypes",
+		`
+		print(mytypes.NameOrNum(42))
+	`, `union<NameOrNum>{int<Int>{42}}
+`)
+}
+
 // Test union construction using restructuring
 func TestUnionRestructuring(t *testing.T) {
 	mustParseSchemaRunScriptAssertOutput(t,

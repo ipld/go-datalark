@@ -3,6 +3,7 @@ package datalarkengine
 import (
 	"fmt"
 	"reflect"
+	"strings"
 
 	"github.com/ipld/go-ipld-prime/datamodel"
 	"github.com/ipld/go-ipld-prime/node/basicnode"
@@ -160,6 +161,27 @@ func getStructFieldNames(structObj *schema.TypeStruct) []starlark.Value {
 	return result
 }
 
+func findMemberMatch(unionObj *schema.TypeUnion, val starlark.Value) starlark.String {
+	typeName := val.Type()
+	if v, ok := val.(Value); ok {
+		if tn, ok := v.Node().(schema.TypedNode); ok {
+			// TODO: match Repr as well
+			typeName = tn.Type().Name()
+		}
+	}
+	typeName = strings.ToLower(typeName)
+
+	members := unionObj.Members()
+	for _, m := range members {
+		if strings.ToLower(m.Name()) == typeName {
+			return starlark.String(m.Name())
+		}
+	}
+
+	// not found
+	return starlark.String("")
+}
+
 func rangeUpTo(n int) []int {
 	res := make([]int, n)
 	for i := range res {
@@ -174,13 +196,15 @@ func unifyTraversalOrder(argseq *ArgSeq, fieldNames []starlark.Value) []int {
 	}
 	res := make([]int, len(fieldNames))
 	for i, name := range fieldNames {
-		// TODO(dustmop): Handle optional / nullable values, better errors
-		// Otherwise, map each name from arg to fields. The int in each
-		// position of `res` tells where to find the value in `argseq.vals`
+		// Map each name from arg to fields. The int in each position
+		// of `res` tells where to find the value in `argseq.vals`
 		// For example:
 		//   args   (b='banana', c='cherry', a='apple')
 		//   fields (a, b, c)
 		// res = [2, 0, 1]
+		//
+		// TODO(dustmop): Handle optional / nullable values, better errors
+		//
 		res[i] = argseq.assoc[asString(name)]
 	}
 	return res
@@ -212,12 +236,17 @@ func constructNewValue(p *Prototype, argseq *ArgSeq) (starlark.Value, error) {
 			fieldNames = argseq.ckey
 
 		case *schema.TypeUnion:
-			// union should only have 1 key in its map
-			if len(argseq.names) != 1 {
+			switch len(argseq.names) {
+			case 0:
+				// TODO: What if len(argseq.vals) == 0
+				fieldNames = make([]starlark.Value, 1)
+				fieldNames[0] = findMemberMatch(it, argseq.vals[0])
+			case 1:
+				fieldNames = []starlark.Value{starlark.String(argseq.names[0])}
+			default:
+				// union should only have 1 key in its map
 				return starlark.None, fmt.Errorf("union must be given a map with only 1 key")
 			}
-			fieldNames = make([]starlark.Value, 1)
-			fieldNames[0] = starlark.String(argseq.names[0])
 
 		case *schema.TypeStruct:
 			// struct has field names in its type

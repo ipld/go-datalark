@@ -38,8 +38,6 @@ when interacting with the union value at the type level.)
 
 ### Creating unions with restructuring
 
-TODO: not yet supported.  Should look like the following:
-
 [testmark]:# (hello-unions/hello-unions/create/script.various/restructuring)
 ```python
 print(mytypes.FooOrBar(_={"Foo":"valueOfTypeFoo"}))
@@ -48,11 +46,35 @@ print(mytypes.FooOrBar(_={"Foo":"valueOfTypeFoo"}))
 This is functionally equivalent to the kwargs style (although it is slightly more general,
 because kwargs may be limited by starlark's syntax rules for the kwarg string).
 
-### Simple union result
-
-All the above syntaxes produce the same result:
+Both the above syntaxes produce the same result:
 
 [testmark]:# (hello-unions/hello-unions/create/output)
 ```text
 union<FooOrBar>{string<Foo>{"valueOfTypeFoo"}}
+```
+
+### Creating unions with positional arguments
+
+Here is a union whose members have distinct types:
+
+[testmark]:# (positional-unions/schema)
+```ipldsch
+type NameOrNum union {
+       | String "name"
+       | Int    "num"
+} representation kinded
+```
+
+This can be constructed using a positional arg
+
+[testmark]:# (positional-unions/simple/script.various/create)
+```text
+print(mytypes.NameOrNum("value"))
+```
+
+Which produces this output
+
+[testmark]:# (positional-unions/simple/output)
+```text
+union<NameOrNum>{string<String>{"value"}}
 ```
