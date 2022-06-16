@@ -194,3 +194,80 @@ func TestUnionRestructuring(t *testing.T) {
 	`, `union<NameOrNum>{int<Int>{42}}
 `)
 }
+
+// Test structs and unions can be built from string representations
+func TestStructAndUnionReprs(t *testing.T) {
+	mustParseSchemaRunScriptAssertOutput(t,
+		`
+		type Beta union {
+			| Gamma "gamma:"
+			| Delta "delta:"
+		} representation stringprefix
+
+		type Gamma string
+
+		type Delta struct {
+			x String
+			y String
+		} representation stringjoin {
+			join ","
+		}
+	`,
+		"mytypes",
+		`
+		print(mytypes.Delta("1,2"))
+	`, `struct<Delta>{
+	x: string<String>{"1"}
+	y: string<String>{"2"}
+}
+`)
+
+	mustParseSchemaRunScriptAssertOutput(t,
+		`
+		type Beta union {
+			| Gamma "gamma:"
+			| Delta "delta:"
+		} representation stringprefix
+
+		type Gamma string
+
+		type Delta struct {
+			x String
+			y String
+		} representation stringjoin {
+			join ","
+		}
+	`,
+		"mytypes",
+		`
+		print(mytypes.Beta("gamma:1,2"))
+	`, `union<Beta>{string<Gamma>{"1,2"}}
+`)
+
+	mustParseSchemaRunScriptAssertOutput(t,
+		`
+		type Beta union {
+			| Gamma "gamma:"
+			| Delta "delta:"
+		} representation stringprefix
+
+		type Gamma string
+
+		type Delta struct {
+			x String
+			y String
+		} representation stringjoin {
+			join ","
+		}
+	`,
+		"mytypes",
+		`
+		print(mytypes.Beta("delta:1,2"))
+	`, `
+union<Beta>{struct<Delta>{
+	x: string<String>{"1"}
+	y: string<String>{"2"}
+}}
+`)
+
+}

@@ -143,6 +143,15 @@ func buildArgSeq(args starlark.Tuple, kwargs []starlark.Tuple) (*ArgSeq, error) 
 	return nil, fmt.Errorf("TODO(dustmop): Not Implemented")
 }
 
+// IsSingleString returns whether the args are a single string value
+func (args *ArgSeq) IsSingleString() bool {
+	if len(args.vals) == 1 {
+		_, ok := args.vals[0].(starlark.String)
+		return ok
+	}
+	return false
+}
+
 func asString(v starlark.Value) string {
 	if str, ok := v.(starlark.String); ok {
 		return string(str)
@@ -221,10 +230,27 @@ func (p *Prototype) CallInternal(thread *starlark.Thread, args starlark.Tuple, k
 	return constructNewValue(p, argseq)
 }
 
+// construct a new value with type matching the prototype, using the args for its state
 func constructNewValue(p *Prototype, argseq *ArgSeq) (starlark.Value, error) {
 	nb := p.np.NewBuilder()
 	if tp, ok := p.np.(schema.TypedPrototype); ok {
 		// construct a Typed value, such as a type-specific map or union or struct
+
+		// first, see if the value can be constructed via representation
+		// TODO(dustmop): Is this the correct order? If this is happening too early
+		// on, then instead move it below the 'normal' construction code, and only
+		// use it if the that method fails to work.
+		reprKind := tp.Type().RepresentationBehavior()
+		if reprKind == datamodel.Kind_String && argseq.IsSingleString() {
+			repr := tp.Representation()
+			nb = repr.NewBuilder()
+
+			err := assembleVal(nb, argseq.vals[0])
+			if err != nil {
+				return starlark.None, err
+			}
+			return ToValue(nb.Build())
+		}
 
 		// state for how to construct each possible type
 		var argOrder []int

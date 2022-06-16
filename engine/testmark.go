@@ -123,5 +123,6 @@ func makeTestmarkError(doc *testmark.Document, sourceName string, scriptHunk *te
 	if !ok {
 		fmt.Errorf("error %s:<unknown>: %w", sourceName, err)
 	}
-	return fmt.Errorf("error %s:%d: %w", sourceName, dh.LineStart, err)
+	// NOTE: LineStart+1 because the doc counts from 0, while text editors start at 1
+	return fmt.Errorf("error %s:%d: %w", sourceName, dh.LineStart+1, err)
 }
