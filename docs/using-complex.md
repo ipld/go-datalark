@@ -99,7 +99,7 @@ because the kind of parameter we give it (a string, in this example) clearly mat
 ```python
 print(mytypes.Alpha(
 	mytypes.Beta(
-		"gamma:1,2"
+		"delta:1,2"
 	)
 ))
 ```
@@ -107,8 +107,9 @@ print(mytypes.Alpha(
 (TODO: currently fails within union constructor: needs to support Rule 2.)
 
 Note that the entire `Delta` value is contained within the same string literal!
-The substring "`gamma:`" is consumed during the `Beta` constructor,
-and the remainder of the string is handed off to `Delta` consturctor logic
+The substring "`delta:`" is consumed during the `Beta` constructor
+(remember, `Beta` is the union type -- so first, it's figuring out which member the union will be occupied with),
+and the remainder of the string ("`1,2`") is handed off to `Delta` constructor logic
 (without seeing that call explicitly in the datalark syntax).
 
 This kind of construction is using quite a lot of powerful features,
@@ -125,7 +126,7 @@ and letting datalark "figure it out":
 
 [testmark]:# (skipme/kitchensink/val1/script.various/representation-shorter)
 ```python
-print(mytypes.Alpha("gamma:1,2"))
+print(mytypes.Alpha("delta:1,2"))
 ```
 
 (TODO: currently fails within union constructor: needs to support Rule 2.)
@@ -185,21 +186,21 @@ by that constructor function (and can be reset by using another constructor).
 
 [testmark]:# (skipme/kitchensink/val1/script.various/mixed-explicitness)
 ```python
-# First of all, let's explicitly use a representation mode constructor, for fun:
+# The first parts of this example are the same as the previous.
+# We start with an explicitly representation mode constructor:
 print(mytypes.Alpha.Repr(
-	# This constructor call is going to use restructuring style.
-	# Note that the map key is "b" rather than "beta", because we're at representation level.
 	_={"b":
 		# At this moment, the "explicit mode" is still repr-level.
-		# However, using another constructor call gives us an opportunity to switch,
-		# and we'll even use an explict constructor mode to do so:
+		# However, using another constructor call gives us an opportunity to switch.
+		# Here we use an explicitly type-level constructor:
 		mytypes.Beta.Typed(_={
 			# Note the map key here is "Delta" (the type name),
 			#  not "delta:" (which would be the representation-level discriminator string).
 			"Delta": {"x": "1", "y": "2"}
-			# Note that we used the type-level representation for the Delta value;
-			# in this case we couldn't have used "1,2" and counted on Rule 2 to fix it up for us,
+			# Note that we also used the type-level representation for the Delta value;
+			# in this case we could NOT have used "1,2" and counted on Rule 2 to fix it up for us,
 			# because we're still within a context where we explicitly said we're using typed mode.
+			# Explicit modes are Rule 1, so Rule 2 cannot be applied.
 		})
 	}
 ))
@@ -215,6 +216,7 @@ what happens if we nest constructors that *aren't* explicit about their level?
 [testmark]:# (skipme/kitchensink/val1/script.various/occasional-explicitness)
 ```python
 # The first parts of this example are the same as the previous.
+# We start with an explicitly representation mode constructor:
 print(mytypes.Alpha.Repr(
 	_={"b":
 		# Note that this next constructor is the default "DWIM" constructor,
