@@ -57,8 +57,8 @@ we'll try to produce the following value, printed in debug format as:
 ```text
 struct<Alpha>{
 	beta: union<Beta>{struct<Delta>{
-		x: "1"
-		y: "2"
+		x: string<String>{"1"}
+		y: string<String>{"2"}
 	}}
 }
 ```
@@ -69,7 +69,7 @@ Perhaps the clearest way to construct this value is using the default constructo
 and giving them arguments that match the type-level structure,
 and using another constructor function explicitly for each object:
 
-[testmark]:# (skipme/kitchensink/val1/script.various/typelevel)
+[testmark]:# (kitchensink/val1/script.various/typelevel)
 ```python
 print(mytypes.Alpha(
 	# The following line is a positional argument to a struct constructor:
@@ -95,7 +95,7 @@ In this example, we start doing so at the `Beta` type,
 and are able to have the default constructor switch into representation parsing mode,
 because the kind of parameter we give it (a string, in this example) clearly matches the representation strategy.
 
-[testmark]:# (skipme/kitchensink/val1/script.various/representation)
+[testmark]:# (kitchensink/val1/script.various/representation)
 ```python
 print(mytypes.Alpha(
 	mytypes.Beta(
@@ -124,7 +124,7 @@ See [The Decision Tree For Mode](consturctors.md#the-decision-tree-for-mode) doc
 The above example can be even more brief by using even fewer constructor calls,
 and letting datalark "figure it out":
 
-[testmark]:# (skipme/kitchensink/val1/script.various/representation-shorter)
+[testmark]:# (kitchensink/val1/script.various/representation-shorter)
 ```python
 print(mytypes.Alpha("delta:1,2"))
 ```

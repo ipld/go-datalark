@@ -26,13 +26,13 @@ func InjectGlobals(globals starlark.StringDict, obj *Object) {
 // PrimitiveConstructors returns the constructors for primitive types as an Object
 func PrimitiveConstructors() *Object {
 	obj := NewObject(7)
-	obj.SetKey(starlark.String("Map"), &Prototype{"Map", basicnode.Prototype.Map})
-	obj.SetKey(starlark.String("List"), &Prototype{"List", basicnode.Prototype.List})
-	obj.SetKey(starlark.String("Bool"), &Prototype{"Bool", basicnode.Prototype.Bool})
-	obj.SetKey(starlark.String("Int"), &Prototype{"Int", basicnode.Prototype.Int})
-	obj.SetKey(starlark.String("Float"), &Prototype{"Float", basicnode.Prototype.Float})
-	obj.SetKey(starlark.String("String"), &Prototype{"String", basicnode.Prototype.String})
-	obj.SetKey(starlark.String("Bytes"), &Prototype{"Bytes", basicnode.Prototype.Bytes})
+	obj.SetKey(starlark.String("Map"), &Prototype{"Map", basicnode.Prototype.Map, AnyMode})
+	obj.SetKey(starlark.String("List"), &Prototype{"List", basicnode.Prototype.List, AnyMode})
+	obj.SetKey(starlark.String("Bool"), &Prototype{"Bool", basicnode.Prototype.Bool, AnyMode})
+	obj.SetKey(starlark.String("Int"), &Prototype{"Int", basicnode.Prototype.Int, AnyMode})
+	obj.SetKey(starlark.String("Float"), &Prototype{"Float", basicnode.Prototype.Float, AnyMode})
+	obj.SetKey(starlark.String("String"), &Prototype{"String", basicnode.Prototype.String, AnyMode})
+	obj.SetKey(starlark.String("Bytes"), &Prototype{"Bytes", basicnode.Prototype.Bytes, AnyMode})
 	obj.Freeze()
 	return obj
 }
@@ -41,7 +41,7 @@ func PrimitiveConstructors() *Object {
 func MakeConstructors(prototypes []schema.TypedPrototype) *Object {
 	obj := NewObject(len(prototypes))
 	for _, npt := range prototypes {
-		obj.SetKey(starlark.String(npt.Type().Name()), &Prototype{npt.Type().Name(), npt})
+		obj.SetKey(starlark.String(npt.Type().Name()), &Prototype{npt.Type().Name(), npt, AnyMode})
 	}
 	obj.Freeze()
 	return obj

@@ -11,6 +11,15 @@ import (
 	"go.starlark.net/starlark"
 )
 
+// Mode of construction, Typed or Repr or default (both)
+type Mode int
+
+const (
+	AnyMode   Mode = 0
+	TypedMode      = 1
+	ReprMode       = 2
+)
+
 // Prototype wraps an IPLD `datamodel.NodePrototype`, and in starlark,
 // is a `Callable` which acts like a constructor for that NodePrototype.
 //
@@ -19,10 +28,11 @@ import (
 type Prototype struct {
 	name string
 	np   datamodel.NodePrototype
+	mode Mode
 }
 
 func NewPrototype(name string, np datamodel.NodePrototype) *Prototype {
-	return &Prototype{name: name, np: np}
+	return &Prototype{name: name, np: np, mode: AnyMode}
 }
 
 func (p *Prototype) TypeName() string {
@@ -62,6 +72,19 @@ func (p *Prototype) Name() string {
 	return p.String()
 }
 
+func (p *Prototype) Attr(name string) (starlark.Value, error) {
+	if name == "Typed" {
+		return &Prototype{name: p.name, np: p.np, mode: TypedMode}, nil
+	} else if name == "Repr" {
+		return &Prototype{name: p.name, np: p.np, mode: ReprMode}, nil
+	}
+	return starlark.None, nil
+}
+
+func (p *Prototype) AttrNames() []string {
+	return []string{"Repr", "Typed"}
+}
+
 // ArgSeq represents a sequence of arguments passed into a function. The
 // sequence may or may not also have a mapping from argument names to positions,
 // as is the case for keyword args or for restructured args
@@ -69,7 +92,8 @@ type ArgSeq struct {
 	vals []starlark.Value
 	// ckey is used to store compound keys, such as a typed map with a
 	// struct for a key. It is somewhat of a hack, intended to fix the
-	// test `Example_mapWithStructKeys`. Ideally it shouldn't be needed.
+	// test `Example_mapWithStructKeys`. Ideally it shouldn't be needed, or
+	// it should be generalized.
 	ckey []starlark.Value
 	// names is the ordered list of named keys, and assoc stores a mapping
 	// from those names to the indexes of the arguments
@@ -236,20 +260,21 @@ func constructNewValue(p *Prototype, argseq *ArgSeq) (starlark.Value, error) {
 	if tp, ok := p.np.(schema.TypedPrototype); ok {
 		// construct a Typed value, such as a type-specific map or union or struct
 
-		// first, see if the value can be constructed via representation
 		// TODO(dustmop): Is this the correct order? If this is happening too early
-		// on, then instead move it below the 'normal' construction code, and only
+		// on, then instead move it below the 'typed' construction code, and only
 		// use it if the that method fails to work.
-		reprKind := tp.Type().RepresentationBehavior()
-		if reprKind == datamodel.Kind_String && argseq.IsSingleString() {
-			repr := tp.Representation()
-			nb = repr.NewBuilder()
 
-			err := assembleVal(nb, argseq.vals[0])
-			if err != nil {
+		if p.mode == AnyMode || p.mode == ReprMode {
+			// see if the value can be constructed via representation
+			val, err := constructFromRepresentation(tp, argseq)
+			if err == nil {
+				return val, nil
+			} else if p.mode == ReprMode {
+				// if only representation is allowed, this function has failed
 				return starlark.None, err
 			}
-			return ToValue(nb.Build())
+			// otherwise, try typed instead
+			err = nil
 		}
 
 		// state for how to construct each possible type
@@ -301,7 +326,7 @@ func constructNewValue(p *Prototype, argseq *ArgSeq) (starlark.Value, error) {
 			if err := assembleVal(ma.AssembleKey(), fieldNames[i]); err != nil {
 				return starlark.None, err
 			}
-			if err = assembleVal(ma.AssembleValue(), argseq.vals[j]); err != nil {
+			if err := assembleParameter(ma, argseq.vals[j], true); err != nil {
 				return starlark.None, err
 			}
 		}
@@ -373,4 +398,32 @@ func constructNewValue(p *Prototype, argseq *ArgSeq) (starlark.Value, error) {
 	}
 
 	return ToValue(nb.Build())
+}
+
+func constructFromRepresentation(tp schema.TypedPrototype, argseq *ArgSeq) (starlark.Value, error) {
+	nb := tp.Representation().NewBuilder()
+	if err := assembleVal(nb, argseq.vals[0]); err != nil {
+		return starlark.None, err
+	}
+	return ToValue(nb.Build())
+}
+
+func assembleParameter(ma datamodel.MapAssembler, val starlark.Value, allowRepr bool) error {
+	na := ma.AssembleValue()
+	err := assembleVal(na, val)
+	if err == nil {
+		return err
+	}
+
+	tp, ok := na.Prototype().(schema.TypedPrototype)
+	if !ok || !allowRepr {
+		// reusing the `err` value from above
+		return err
+	}
+
+	builder := tp.Representation().NewBuilder()
+	if err := assembleVal(builder, val); err != nil {
+		return err
+	}
+	return na.AssignNode(builder.Build())
 }

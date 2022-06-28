@@ -271,3 +271,33 @@ union<Beta>{struct<Delta>{
 `)
 
 }
+
+func TestStructTypedAndRepr(t *testing.T) {
+	mustParseSchemaRunScriptAssertOutput(t,
+		`
+type Alpha struct {
+    beta Beta (rename "b")
+} representation map
+
+type Beta string
+`,
+		"mytypes",
+		// TODO: 4th case is not working, is `rename` implemented?
+		`
+		print(mytypes.Alpha("cat"))
+		print(mytypes.Alpha(_={"beta": "meow"}))
+		print(mytypes.Alpha.Typed(_={"Beta": "cat"}))
+		#print(mytypes.Alpha.Repr(_={"b": "meow"}))
+	`, `
+struct<Alpha>{
+	beta: string<Beta>{"cat"}
+}
+struct<Alpha>{
+	beta: string<Beta>{"meow"}
+}
+struct<Alpha>{
+	beta: string<Beta>{"cat"}
+}
+`)
+
+}

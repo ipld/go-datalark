@@ -24,6 +24,11 @@ func mustParseSchemaRunScriptAssertOutput(t *testing.T, schemaText, globalName, 
 	if t != nil {
 		t.Helper()
 	}
+	defines := mustParseSchemaDefines(t, schemaText)
+	assertScriptOutput(t, defines, globalName, script, expect)
+}
+
+func mustParseSchemaDefines(t *testing.T, schemaText string) []schema.TypedPrototype {
 	typesystem, err := ipld.LoadSchema("<noname>", strings.NewReader(schemaText))
 	if err != nil {
 		if t != nil {
@@ -35,7 +40,7 @@ func mustParseSchemaRunScriptAssertOutput(t *testing.T, schemaText, globalName, 
 	for _, typeInfo := range typesystem.GetTypes() {
 		defines = append(defines, bindnode.Prototype(nil, typeInfo))
 	}
-	assertScriptOutput(t, defines, globalName, script, expect)
+	return defines
 }
 
 // assertScriptOutput evaluates a script with the given defintions bound to the
