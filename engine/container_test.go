@@ -301,3 +301,29 @@ struct<Alpha>{
 `)
 
 }
+
+func TestStructRepr(t *testing.T) {
+	mustParseSchemaRunScriptAssertOutput(t,
+		`
+type Alpha struct {
+    beta String (rename "b")
+} representation map
+`,
+		"mytypes",
+		`
+		print(mytypes.Alpha.Repr("meow"))
+		print(mytypes.Alpha.Repr(b="meow"))
+		print(mytypes.Alpha.Repr(_={"b": "meow"}))
+	`, `
+struct<Alpha>{
+	beta: string<String>{"meow"}
+}
+struct<Alpha>{
+	beta: string<String>{"meow"}
+}
+struct<Alpha>{
+	beta: string<String>{"meow"}
+}
+`)
+
+}

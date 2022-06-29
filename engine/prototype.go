@@ -169,7 +169,7 @@ func buildArgSeq(args starlark.Tuple, kwargs []starlark.Tuple) (*ArgSeq, error) 
 
 // IsSingleString returns whether the args are a single string value
 func (args *ArgSeq) IsSingleString() bool {
-	if len(args.vals) == 1 {
+	if len(args.names) == 0 && len(args.vals) == 1 {
 		_, ok := args.vals[0].(starlark.String)
 		return ok
 	}
@@ -260,23 +260,6 @@ func constructNewValue(p *Prototype, argseq *ArgSeq) (starlark.Value, error) {
 	if tp, ok := p.np.(schema.TypedPrototype); ok {
 		// construct a Typed value, such as a type-specific map or union or struct
 
-		// TODO(dustmop): Is this the correct order? If this is happening too early
-		// on, then instead move it below the 'typed' construction code, and only
-		// use it if the that method fails to work.
-
-		if p.mode == AnyMode || p.mode == ReprMode {
-			// see if the value can be constructed via representation
-			val, err := constructFromRepresentation(tp, argseq)
-			if err == nil {
-				return val, nil
-			} else if p.mode == ReprMode {
-				// if only representation is allowed, this function has failed
-				return starlark.None, err
-			}
-			// otherwise, try typed instead
-			err = nil
-		}
-
 		// state for how to construct each possible type
 		var argOrder []int
 		var fieldNames []starlark.Value
@@ -313,28 +296,30 @@ func constructNewValue(p *Prototype, argseq *ArgSeq) (starlark.Value, error) {
 		if argOrder == nil {
 			argOrder = rangeUpTo(len(argseq.vals))
 		}
+
+		// TODO(dustmop): Is this the correct order? If this is happening too early
+		// on, then instead move it below the 'typed' construction code, and only
+		// use it if the that method fails to work.
+		if p.mode == AnyMode || p.mode == ReprMode {
+			// see if the value can be constructed via representation
+			val, err := constructFromRepresentation(tp, fieldNames, argOrder, argseq)
+			if err == nil {
+				return val, nil
+			} else if p.mode == ReprMode {
+				// if only representation is allowed, this function has failed
+				return starlark.None, err
+			}
+			// otherwise, try typed instead
+			err = nil
+		}
+
+		// ensure that the number of values matches the number of fields
+		// TODO(dustmop): Handle optional values
 		if len(argseq.vals) != len(fieldNames) {
 			return starlark.None, fmt.Errorf("field length mismatch: %d != %d", len(argseq.vals), len(fieldNames))
 		}
 
-		// assemble the map from our given order, fields, and values
-		ma, err := nb.BeginMap(int64(len(argseq.vals)))
-		if err != nil {
-			return starlark.None, err
-		}
-		for i, j := range argOrder {
-			if err := assembleVal(ma.AssembleKey(), fieldNames[i]); err != nil {
-				return starlark.None, err
-			}
-			if err := assembleParameter(ma, argseq.vals[j], true); err != nil {
-				return starlark.None, err
-			}
-		}
-		if err := ma.Finish(); err != nil {
-			return starlark.None, err
-		}
-
-		return ToValue(nb.Build())
+		return constructUsingFieldsValues(nb, fieldNames, argOrder, argseq)
 	}
 
 	switch p.np.(type) {
@@ -400,11 +385,40 @@ func constructNewValue(p *Prototype, argseq *ArgSeq) (starlark.Value, error) {
 	return ToValue(nb.Build())
 }
 
-func constructFromRepresentation(tp schema.TypedPrototype, argseq *ArgSeq) (starlark.Value, error) {
+func constructFromRepresentation(tp schema.TypedPrototype, fieldNames []starlark.Value, argOrder []int, argseq *ArgSeq) (starlark.Value, error) {
+	// build using the representation instead
 	nb := tp.Representation().NewBuilder()
-	if err := assembleVal(nb, argseq.vals[0]); err != nil {
+
+	// a single string representation form, such as `Alpha("beta:1")` to assign
+	// the value "1" to the field "beta" of "Alpha". this is handled by the assembler
+	if argseq.IsSingleString() {
+		if err := assembleVal(nb, argseq.vals[0]); err == nil {
+			return ToValue(nb.Build())
+		}
+		// if the single string representation fails, continue using field-values instead
+	}
+
+	return constructUsingFieldsValues(nb, fieldNames, argOrder, argseq)
+}
+
+// assemble the map from our given order, fields, and values
+func constructUsingFieldsValues(nb datamodel.NodeBuilder, fieldNames []starlark.Value, argOrder []int, argseq *ArgSeq) (starlark.Value, error) {
+	ma, err := nb.BeginMap(int64(len(argseq.vals)))
+	if err != nil {
 		return starlark.None, err
 	}
+	for i, j := range argOrder {
+		if err := assembleVal(ma.AssembleKey(), fieldNames[i]); err != nil {
+			return starlark.None, err
+		}
+		if err := assembleParameter(ma, argseq.vals[j], false); err != nil {
+			return starlark.None, err
+		}
+	}
+	if err := ma.Finish(); err != nil {
+		return starlark.None, err
+	}
+
 	return ToValue(nb.Build())
 }
 
@@ -415,8 +429,13 @@ func assembleParameter(ma datamodel.MapAssembler, val starlark.Value, allowRepr 
 		return err
 	}
 
+	if !allowRepr {
+		// reusing the `err` value from above
+		return err
+	}
+
 	tp, ok := na.Prototype().(schema.TypedPrototype)
-	if !ok || !allowRepr {
+	if !ok {
 		// reusing the `err` value from above
 		return err
 	}
