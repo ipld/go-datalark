@@ -223,22 +223,22 @@ func rangeUpTo(n int) []int {
 	return res
 }
 
-func unifyTraversalOrder(argseq *ArgSeq, fieldNames []starlark.Value) []int {
+func reorderFields(argseq *ArgSeq, fieldNames []starlark.Value) []starlark.Value {
 	if argseq.assoc == nil {
 		return nil
 	}
-	res := make([]int, len(fieldNames))
+	res := make([]starlark.Value, len(fieldNames))
 	for i, name := range fieldNames {
 		// Map each name from arg to fields. The int in each position
 		// of `res` tells where to find the value in `argseq.vals`
 		// For example:
 		//   args   (b='banana', c='cherry', a='apple')
 		//   fields (a, b, c)
-		// res = [2, 0, 1]
+		// res = [b, c, a]
 		//
 		// TODO(dustmop): Handle optional / nullable values, better errors
 		//
-		res[i] = argseq.assoc[asString(name)]
+		res[i] = fieldNames[argseq.assoc[asString(name)]]
 	}
 	return res
 }
@@ -256,12 +256,11 @@ func (p *Prototype) CallInternal(thread *starlark.Thread, args starlark.Tuple, k
 
 // construct a new value with type matching the prototype, using the args for its state
 func constructNewValue(p *Prototype, argseq *ArgSeq) (starlark.Value, error) {
-	nb := p.np.NewBuilder()
 	if tp, ok := p.np.(schema.TypedPrototype); ok {
 		// construct a Typed value, such as a type-specific map or union or struct
+		nb := p.np.NewBuilder()
 
 		// state for how to construct each possible type
-		var argOrder []int
 		var fieldNames []starlark.Value
 
 		switch it := tp.Type().(type) {
@@ -286,15 +285,13 @@ func constructNewValue(p *Prototype, argseq *ArgSeq) (starlark.Value, error) {
 			// struct has field names in its type
 			fieldNames = getStructFieldNames(it)
 			// determine the order to apply the arguments
-			argOrder = unifyTraversalOrder(argseq, fieldNames)
+			replace := reorderFields(argseq, fieldNames)
+			if replace != nil {
+				fieldNames = replace
+			}
 
 		default:
 			return starlark.None, fmt.Errorf("unknown type: %T", it)
-		}
-
-		// ensure traversal order and field names have valid data
-		if argOrder == nil {
-			argOrder = rangeUpTo(len(argseq.vals))
 		}
 
 		// TODO(dustmop): Is this the correct order? If this is happening too early
@@ -302,7 +299,7 @@ func constructNewValue(p *Prototype, argseq *ArgSeq) (starlark.Value, error) {
 		// use it if the that method fails to work.
 		if p.mode == AnyMode || p.mode == ReprMode {
 			// see if the value can be constructed via representation
-			val, err := constructFromRepresentation(tp, fieldNames, argOrder, argseq)
+			val, err := constructFromRepresentation(tp, fieldNames, argseq)
 			if err == nil {
 				return val, nil
 			} else if p.mode == ReprMode {
@@ -319,8 +316,14 @@ func constructNewValue(p *Prototype, argseq *ArgSeq) (starlark.Value, error) {
 			return starlark.None, fmt.Errorf("field length mismatch: %d != %d", len(argseq.vals), len(fieldNames))
 		}
 
-		return constructUsingFieldsValues(nb, fieldNames, argOrder, argseq)
+		return constructUsingFieldsValues(nb, fieldNames, argseq)
 	}
+
+	return constructBasicValue(p, argseq)
+}
+
+func constructBasicValue(p *Prototype, argseq *ArgSeq) (starlark.Value, error) {
+	nb := p.np.NewBuilder()
 
 	switch p.np.(type) {
 	case basicnode.Prototype__Bool, basicnode.Prototype__Int, basicnode.Prototype__Float, basicnode.Prototype__String, basicnode.Prototype__Bytes:
@@ -385,7 +388,7 @@ func constructNewValue(p *Prototype, argseq *ArgSeq) (starlark.Value, error) {
 	return ToValue(nb.Build())
 }
 
-func constructFromRepresentation(tp schema.TypedPrototype, fieldNames []starlark.Value, argOrder []int, argseq *ArgSeq) (starlark.Value, error) {
+func constructFromRepresentation(tp schema.TypedPrototype, fieldNames []starlark.Value, argseq *ArgSeq) (starlark.Value, error) {
 	// build using the representation instead
 	nb := tp.Representation().NewBuilder()
 
@@ -398,20 +401,20 @@ func constructFromRepresentation(tp schema.TypedPrototype, fieldNames []starlark
 		// if the single string representation fails, continue using field-values instead
 	}
 
-	return constructUsingFieldsValues(nb, fieldNames, argOrder, argseq)
+	return constructUsingFieldsValues(nb, fieldNames, argseq)
 }
 
 // assemble the map from our given order, fields, and values
-func constructUsingFieldsValues(nb datamodel.NodeBuilder, fieldNames []starlark.Value, argOrder []int, argseq *ArgSeq) (starlark.Value, error) {
+func constructUsingFieldsValues(nb datamodel.NodeBuilder, fieldNames []starlark.Value, argseq *ArgSeq) (starlark.Value, error) {
 	ma, err := nb.BeginMap(int64(len(argseq.vals)))
 	if err != nil {
 		return starlark.None, err
 	}
-	for i, j := range argOrder {
+	for i := range fieldNames {
 		if err := assembleVal(ma.AssembleKey(), fieldNames[i]); err != nil {
 			return starlark.None, err
 		}
-		if err := assembleParameter(ma, argseq.vals[j], false); err != nil {
+		if err := assembleParameter(ma, argseq.vals[i], false); err != nil {
 			return starlark.None, err
 		}
 	}
