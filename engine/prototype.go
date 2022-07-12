@@ -294,29 +294,27 @@ func constructNewValue(p *Prototype, argseq *ArgSeq) (starlark.Value, error) {
 			return starlark.None, fmt.Errorf("unknown type: %T", it)
 		}
 
-		// TODO(dustmop): Is this the correct order? If this is happening too early
-		// on, then instead move it below the 'typed' construction code, and only
-		// use it if the that method fails to work.
+		// maybe can be constructed via data-kind representation agreement
 		if p.mode == AnyMode || p.mode == ReprMode {
-			// see if the value can be constructed via representation
-			val, err := constructFromRepresentation(tp, fieldNames, argseq)
+			if val, err := constructFromStringRepresentation(tp, argseq); err == nil {
+				return val, nil
+			}
+			// ignore error because it was only the first attempt
+		}
+
+		// maybe construct using type agreement
+		if p.mode == AnyMode || p.mode == TypedMode {
+			val, err := constructUsingFieldsValues(nb, fieldNames, argseq)
 			if err == nil {
 				return val, nil
-			} else if p.mode == ReprMode {
-				// if only representation is allowed, this function has failed
+			} else if p.mode == TypedMode {
 				return starlark.None, err
 			}
-			// otherwise, try typed instead
+			// ignore error because there is one approach left to try
 			err = nil
 		}
 
-		// ensure that the number of values matches the number of fields
-		// TODO(dustmop): Handle optional values
-		if len(argseq.vals) != len(fieldNames) {
-			return starlark.None, fmt.Errorf("field length mismatch: %d != %d", len(argseq.vals), len(fieldNames))
-		}
-
-		return constructUsingFieldsValues(nb, fieldNames, argseq)
+		return constructAsRepresentation(tp, fieldNames, argseq)
 	}
 
 	return constructBasicValue(p, argseq)
@@ -388,24 +386,33 @@ func constructBasicValue(p *Prototype, argseq *ArgSeq) (starlark.Value, error) {
 	return ToValue(nb.Build())
 }
 
-func constructFromRepresentation(tp schema.TypedPrototype, fieldNames []starlark.Value, argseq *ArgSeq) (starlark.Value, error) {
-	// build using the representation instead
-	nb := tp.Representation().NewBuilder()
-
+func constructFromStringRepresentation(tp schema.TypedPrototype, argseq *ArgSeq) (starlark.Value, error) {
 	// a single string representation form, such as `Alpha("beta:1")` to assign
 	// the value "1" to the field "beta" of "Alpha". this is handled by the assembler
-	if argseq.IsSingleString() {
-		if err := assembleVal(nb, argseq.vals[0]); err == nil {
-			return ToValue(nb.Build())
-		}
-		// if the single string representation fails, continue using field-values instead
+	if !argseq.IsSingleString() {
+		return starlark.None, fmt.Errorf("arguments are not a single string")
 	}
-
-	return constructUsingFieldsValues(nb, fieldNames, argseq)
+	nb := tp.Representation().NewBuilder()
+	if err := assembleVal(nb, argseq.vals[0]); err != nil {
+		return starlark.None, err
+	}
+	return ToValue(nb.Build())
 }
 
-// assemble the map from our given order, fields, and values
+func constructAsRepresentation(tp schema.TypedPrototype, fieldNames []starlark.Value, argseq *ArgSeq) (starlark.Value, error) {
+	return constructUsingFieldsValues(tp.Representation().NewBuilder(), fieldNames, argseq)
+}
+
+// assemble the node as a map of fields and values
 func constructUsingFieldsValues(nb datamodel.NodeBuilder, fieldNames []starlark.Value, argseq *ArgSeq) (starlark.Value, error) {
+	if len(fieldNames) != len(argseq.vals) {
+		fieldList := make([]string, len(fieldNames))
+		for i, val := range fieldNames {
+			// TODO(dustmop): handle non-string values here
+			fieldList[i] = string(val.(starlark.String))
+		}
+		return starlark.None, fmt.Errorf("expected %d values (%s), only got %d", len(fieldNames), strings.Join(fieldList, ","), len(argseq.vals))
+	}
 	ma, err := nb.BeginMap(int64(len(argseq.vals)))
 	if err != nil {
 		return starlark.None, err
