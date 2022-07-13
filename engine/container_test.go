@@ -286,7 +286,7 @@ type Beta string
 		`
 		print(mytypes.Alpha("cat"))
 		print(mytypes.Alpha(_={"beta": "meow"}))
-		print(mytypes.Alpha.Typed(_={"Beta": "cat"}))
+		print(mytypes.Alpha.Typed(_={"beta": "cat"}))
 		#print(mytypes.Alpha.Repr(_={"b": "meow"}))
 	`, `
 struct<Alpha>{

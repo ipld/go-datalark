@@ -95,10 +95,9 @@ type ArgSeq struct {
 	// test `Example_mapWithStructKeys`. Ideally it shouldn't be needed, or
 	// it should be generalized.
 	ckey []starlark.Value
-	// names is the ordered list of named keys, and assoc stores a mapping
-	// from those names to the indexes of the arguments
-	names  []string
-	assoc  map[string]int
+	// names is the ordered list of named keys
+	names []string
+	// scalar is whether the arguments is a single scalar value
 	scalar bool
 }
 
@@ -133,10 +132,8 @@ func buildArgSeq(args starlark.Tuple, kwargs []starlark.Tuple) (*ArgSeq, error) 
 			argseq.vals = make([]starlark.Value, len(keys))
 			argseq.ckey = make([]starlark.Value, len(keys))
 			argseq.names = make([]string, len(keys))
-			argseq.assoc = make(map[string]int)
 			for i := 0; i < len(keys); i++ {
 				argseq.names[i] = asString(keys[i])
-				argseq.assoc[asString(keys[i])] = i
 				val, _, err := dict.Get(keys[i])
 				if err != nil {
 					return nil, err
@@ -152,10 +149,8 @@ func buildArgSeq(args starlark.Tuple, kwargs []starlark.Tuple) (*ArgSeq, error) 
 		argseq.vals = make([]starlark.Value, len(kwargs))
 		argseq.ckey = make([]starlark.Value, len(kwargs))
 		argseq.names = make([]string, len(kwargs))
-		argseq.assoc = make(map[string]int)
 		for i := 0; i < len(kwargs); i++ {
 			argseq.names[i] = asString(kwargs[i][0])
-			argseq.assoc[asString(kwargs[i][0])] = i
 			argseq.ckey[i] = kwargs[i][0]
 			argseq.vals[i] = kwargs[i][1]
 		}
@@ -223,26 +218,6 @@ func rangeUpTo(n int) []int {
 	return res
 }
 
-func reorderFields(argseq *ArgSeq, fieldNames []starlark.Value) []starlark.Value {
-	if argseq.assoc == nil {
-		return nil
-	}
-	res := make([]starlark.Value, len(fieldNames))
-	for i, name := range fieldNames {
-		// Map each name from arg to fields. The int in each position
-		// of `res` tells where to find the value in `argseq.vals`
-		// For example:
-		//   args   (b='banana', c='cherry', a='apple')
-		//   fields (a, b, c)
-		// res = [b, c, a]
-		//
-		// TODO(dustmop): Handle optional / nullable values, better errors
-		//
-		res[i] = fieldNames[argseq.assoc[asString(name)]]
-	}
-	return res
-}
-
 func (p *Prototype) CallInternal(thread *starlark.Thread, args starlark.Tuple, kwargs []starlark.Tuple) (starlark.Value, error) {
 	// Prototype is being called with some starlark values. Determine what
 	// the incoming arguments are, and use them to construct an ArgSeq.
@@ -284,10 +259,21 @@ func constructNewValue(p *Prototype, argseq *ArgSeq) (starlark.Value, error) {
 		case *schema.TypeStruct:
 			// struct has field names in its type
 			fieldNames = getStructFieldNames(it)
-			// determine the order to apply the arguments
-			replace := reorderFields(argseq, fieldNames)
-			if replace != nil {
-				fieldNames = replace
+			// if names were given for the arguments, use them for construction
+			if argseq.names != nil {
+				if len(argseq.names) != len(fieldNames) {
+					fieldList := make([]string, len(fieldNames))
+					for i, val := range fieldNames {
+						// TODO(dustmop): handle non-string values here
+						fieldList[i] = string(val.(starlark.String))
+					}
+					return starlark.None, fmt.Errorf("expected %d values (%s), only got %d", len(fieldNames), strings.Join(fieldList, ","), len(argseq.vals))
+				}
+				// TODO(dustmop): validate them against the struct
+				fieldNames = make([]starlark.Value, len(argseq.names))
+				for i, name := range argseq.names {
+					fieldNames[i] = starlark.String(name)
+				}
 			}
 
 		default:
@@ -364,14 +350,11 @@ func constructBasicValue(p *Prototype, argseq *ArgSeq) (starlark.Value, error) {
 		if err != nil {
 			return starlark.None, err
 		}
-		// iterate over the names in a deterministic order, if this instead
-		// used `range argseq.assoc` it would *not* be deterministic
-		for _, n := range argseq.names {
-			v := argseq.vals[argseq.assoc[n]]
+		for i, n := range argseq.names {
 			if err := assembleVal(ma.AssembleKey(), starlark.String(n)); err != nil {
 				return starlark.None, err
 			}
-			if err := assembleVal(ma.AssembleValue(), v); err != nil {
+			if err := assembleVal(ma.AssembleValue(), argseq.vals[i]); err != nil {
 				return starlark.None, err
 			}
 		}

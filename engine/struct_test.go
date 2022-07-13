@@ -74,7 +74,7 @@ func TestStructWrongNumberOfFields1(t *testing.T) {
 		"mytypes",
 		`
 		f = mytypes.FooBar("one", "two")
-		print(f.foo)
+		print(f)
 	`)
 	if err == nil {
 		t.Fatalf("expected error, did not get one")
@@ -95,13 +95,39 @@ func TestStructWrongNumberOfFields2(t *testing.T) {
 	_, err := runScript(defines,
 		"mytypes",
 		`
-		f = mytypes.Animals(cat="meow", dog="bark")
-		print(f.foo)
+		f = mytypes.Animals(dog="bark", cat="meow")
+		print(f)
 	`)
 	if err == nil {
 		t.Fatalf("expected error, did not get one")
 	}
-	// TODO(dustmop): Fix this error message, caused by bad behavior in reorderFields
-	expectErr := `expected 3 values (cat,dog,cat), only got 2`
+	expectErr := `expected 3 values (cat,dog,eel), only got 2`
 	qt.Assert(t, err.Error(), qt.Equals, expectErr)
+}
+
+func TestStructCorrectNumberOfFields2(t *testing.T) {
+	defines := mustParseSchemaDefines(t,
+		`
+		type Animals struct {
+			cat String
+			dog String
+			eel String
+		}
+	`)
+	res, err := runScript(defines,
+		"mytypes",
+		`
+		f = mytypes.Animals(dog="bark", eel="zap", cat="meow")
+		print(f)
+	`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	expectOut := `struct<Animals>{
+	cat: string<String>{"meow"}
+	dog: string<String>{"bark"}
+	eel: string<String>{"zap"}
+}
+`
+	qt.Assert(t, res, qt.Equals, expectOut)
 }
