@@ -282,12 +282,11 @@ type Alpha struct {
 type Beta string
 `,
 		"mytypes",
-		// TODO: 4th case is not working, is `rename` implemented?
 		`
 		print(mytypes.Alpha("cat"))
 		print(mytypes.Alpha(_={"beta": "meow"}))
 		print(mytypes.Alpha.Typed(_={"beta": "cat"}))
-		#print(mytypes.Alpha.Repr(_={"b": "meow"}))
+		print(mytypes.Alpha.Repr(_={"b": "meow"}))
 	`, `
 struct<Alpha>{
 	beta: string<Beta>{"cat"}
@@ -297,6 +296,9 @@ struct<Alpha>{
 }
 struct<Alpha>{
 	beta: string<Beta>{"cat"}
+}
+struct<Alpha>{
+	beta: string<Beta>{"meow"}
 }
 `)
 
