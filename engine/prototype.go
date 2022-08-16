@@ -418,8 +418,27 @@ func constructUsingFieldsValues(nb datamodel.NodeBuilder, fieldNames []starlark.
 func assembleParameter(ma datamodel.MapAssembler, val starlark.Value, allowRepr bool) error {
 	na := ma.AssembleValue()
 	err := assembleVal(na, val)
+	// if `err` is non-nil, it may get reused below
 	if err == nil {
-		return err
+		return nil
+	}
+
+	if v, ok := val.(Value); ok {
+		if tn, ok := v.Node().(schema.TypedNode); ok {
+			// try assembling using the representation
+			// TODO(dustmop): Should this only be attempted if `ma` is from a
+			// representation assembler?
+			// TODO(dustmop): Should this block be run before the former block
+			// that just tries to use `assembleVal`? Probably harmless to run
+			// that first, since it ignores any error.
+			if tn.Type().RepresentationBehavior() == datamodel.Kind_String {
+				str, err := tn.Representation().AsString()
+				if err != nil {
+					return err
+				}
+				return na.AssignString(str)
+			}
+		}
 	}
 
 	if !allowRepr {
@@ -427,12 +446,14 @@ func assembleParameter(ma datamodel.MapAssembler, val starlark.Value, allowRepr 
 		return err
 	}
 
+	// if representation is allowed, get the assembler's prototype...
 	tp, ok := na.Prototype().(schema.TypedPrototype)
 	if !ok {
 		// reusing the `err` value from above
 		return err
 	}
 
+	// then take the assembler's representation and try using that
 	builder := tp.Representation().NewBuilder()
 	if err := assembleVal(builder, val); err != nil {
 		return err

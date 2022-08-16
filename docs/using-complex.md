@@ -146,7 +146,7 @@ In this example, we use a bunch of explicit variations of constructor functions.
 This is more verbose than any of the other examples,
 but allows the author to be extremely clear about their intentions.
 
-[testmark]:# (skipme/kitchensink/val1/script.various/explicit-mixed-level)
+[testmark]:# (kitchensink/val1/script.various/explicit-mixed-level)
 ```python
 # First of all, let's explicitly use a representation mode constructor, for fun:
 print(mytypes.Alpha.Repr(
@@ -184,7 +184,7 @@ We can use explicit constructors in some positions, and eschew them in others.
 When we do this, the explicitly set mode continues for all the data processed
 by that constructor function (and can be reset by using another constructor).
 
-[testmark]:# (skipme/kitchensink/val1/script.various/mixed-explicitness)
+[testmark]:# (kitchensink/val1/script.various/mixed-explicitness)
 ```python
 # The first parts of this example are the same as the previous.
 # We start with an explicitly representation mode constructor:
