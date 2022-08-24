@@ -156,10 +156,8 @@ func buildArgSeq(args starlark.Tuple, kwargs []starlark.Tuple) (*ArgSeq, error) 
 		}
 		return argseq, nil
 	default:
-		// TODO(dustmop): Missing case, args and kwargs both empty. Is
-		// this always an error or is there an actual use case to support?
+		return argseq, nil
 	}
-	return nil, fmt.Errorf("TODO(dustmop): Not Implemented")
 }
 
 // IsSingleString returns whether the args are a single string value
@@ -180,13 +178,38 @@ func asString(v starlark.Value) string {
 	return v.String()
 }
 
-func getStructFieldNames(structObj *schema.TypeStruct) []starlark.Value {
+type requireInfo struct {
+	allowed int
+	needed  int
+}
+
+func (ri *requireInfo) ensureValidNumFields(fieldNames []starlark.Value, argseq *ArgSeq) error {
+	if ri.needed <= len(argseq.vals) && len(argseq.vals) <= ri.allowed {
+		return nil
+	}
+	fieldList := make([]string, len(fieldNames))
+	for i, val := range fieldNames {
+		// TODO(dustmop): handle non-string values here
+		fieldList[i] = string(val.(starlark.String))
+	}
+	return fmt.Errorf("expected %d values (%s), only got %d", len(fieldNames), strings.Join(fieldList, ","), len(argseq.vals))
+}
+
+func getStructFieldInfo(structObj *schema.TypeStruct) ([]starlark.Value, *requireInfo) {
+	needed := 0
+	allowed := 0
 	fields := structObj.Fields()
 	result := make([]starlark.Value, 0, len(fields))
 	for _, f := range fields {
 		result = append(result, starlark.String(f.Name()))
+		if f.IsOptional() {
+			allowed++
+		} else {
+			allowed++
+			needed++
+		}
 	}
-	return result
+	return result, &requireInfo{allowed: allowed, needed: needed}
 }
 
 func findMemberMatch(unionObj *schema.TypeUnion, val starlark.Value) starlark.String {
@@ -237,6 +260,7 @@ func constructNewValue(p *Prototype, argseq *ArgSeq) (starlark.Value, error) {
 
 		// state for how to construct each possible type
 		var fieldNames []starlark.Value
+		var ri *requireInfo
 
 		switch it := tp.Type().(type) {
 		case *schema.TypeMap:
@@ -258,16 +282,11 @@ func constructNewValue(p *Prototype, argseq *ArgSeq) (starlark.Value, error) {
 
 		case *schema.TypeStruct:
 			// struct has field names in its type
-			fieldNames = getStructFieldNames(it)
+			fieldNames, ri = getStructFieldInfo(it)
 			// if names were given for the arguments, use them for construction
 			if argseq.names != nil {
-				if len(argseq.names) != len(fieldNames) {
-					fieldList := make([]string, len(fieldNames))
-					for i, val := range fieldNames {
-						// TODO(dustmop): handle non-string values here
-						fieldList[i] = string(val.(starlark.String))
-					}
-					return starlark.None, fmt.Errorf("expected %d values (%s), only got %d", len(fieldNames), strings.Join(fieldList, ","), len(argseq.vals))
+				if err := ri.ensureValidNumFields(fieldNames, argseq); err != nil {
+					return starlark.None, err
 				}
 				// TODO(dustmop): validate them against the struct
 				fieldNames = make([]starlark.Value, len(argseq.names))
@@ -288,9 +307,13 @@ func constructNewValue(p *Prototype, argseq *ArgSeq) (starlark.Value, error) {
 			// ignore error because it was only the first attempt
 		}
 
+		if ri == nil {
+			ri = &requireInfo{allowed: len(fieldNames), needed: len(fieldNames)}
+		}
+
 		// maybe construct using type agreement
 		if p.mode == AnyMode || p.mode == TypedMode {
-			val, err := constructUsingFieldsValues(nb, fieldNames, argseq)
+			val, err := constructUsingFieldsValues(nb, fieldNames, ri, argseq)
 			if err == nil {
 				return val, nil
 			} else if p.mode == TypedMode {
@@ -300,7 +323,8 @@ func constructNewValue(p *Prototype, argseq *ArgSeq) (starlark.Value, error) {
 			err = nil
 		}
 
-		return constructAsRepresentation(tp, fieldNames, argseq)
+		// TODO(dustmop): Is reqInfo supported by representation? Add a test.
+		return constructAsRepresentation(tp, fieldNames, ri, argseq)
 	}
 
 	return constructBasicValue(p, argseq)
@@ -382,25 +406,23 @@ func constructFromStringRepresentation(tp schema.TypedPrototype, argseq *ArgSeq)
 	return ToValue(nb.Build())
 }
 
-func constructAsRepresentation(tp schema.TypedPrototype, fieldNames []starlark.Value, argseq *ArgSeq) (starlark.Value, error) {
-	return constructUsingFieldsValues(tp.Representation().NewBuilder(), fieldNames, argseq)
+func constructAsRepresentation(tp schema.TypedPrototype, fieldNames []starlark.Value, ri *requireInfo, argseq *ArgSeq) (starlark.Value, error) {
+	return constructUsingFieldsValues(tp.Representation().NewBuilder(), fieldNames, ri, argseq)
 }
 
 // assemble the node as a map of fields and values
-func constructUsingFieldsValues(nb datamodel.NodeBuilder, fieldNames []starlark.Value, argseq *ArgSeq) (starlark.Value, error) {
-	if len(fieldNames) != len(argseq.vals) {
-		fieldList := make([]string, len(fieldNames))
-		for i, val := range fieldNames {
-			// TODO(dustmop): handle non-string values here
-			fieldList[i] = string(val.(starlark.String))
-		}
-		return starlark.None, fmt.Errorf("expected %d values (%s), only got %d", len(fieldNames), strings.Join(fieldList, ","), len(argseq.vals))
+func constructUsingFieldsValues(nb datamodel.NodeBuilder, fieldNames []starlark.Value, ri *requireInfo, argseq *ArgSeq) (starlark.Value, error) {
+	if err := ri.ensureValidNumFields(fieldNames, argseq); err != nil {
+		return starlark.None, err
 	}
 	ma, err := nb.BeginMap(int64(len(argseq.vals)))
 	if err != nil {
 		return starlark.None, err
 	}
 	for i := range fieldNames {
+		if i >= len(argseq.vals) {
+			break
+		}
 		if err := assembleVal(ma.AssembleKey(), fieldNames[i]); err != nil {
 			return starlark.None, err
 		}

@@ -131,3 +131,20 @@ func TestStructCorrectNumberOfFields2(t *testing.T) {
 `
 	qt.Assert(t, res, qt.Equals, expectOut)
 }
+
+func TestEmptyConstructor(t *testing.T) {
+	mustParseSchemaRunScriptAssertOutput(t,
+		`
+		type FooBar struct {
+			foo optional String
+		}
+	`,
+		"mytypes",
+		`
+		print(mytypes.FooBar())
+	`, `
+		struct<FooBar>{
+			foo: absent
+		}
+	`)
+}
