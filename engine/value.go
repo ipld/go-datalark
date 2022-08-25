@@ -212,33 +212,49 @@ func (v *basicValue) Len() int {
 		return len(str)
 		// TODO: datamodel.Bytes
 		// TODO: datamodel.List
-		// TODO: datamodel.Dict
 	}
 	return -1
 }
 
-// starlark.HasAttrs : starlark.String
+// starlark.HasAttrs
+
+func (v *basicValue) Attr(name string) (starlark.Value, error) {
+	switch v.kind {
+	case datamodel.Kind_String:
+		return v.stringMethodCall(name)
+	}
+	return starlark.None, fmt.Errorf("no methods found for %T", v)
+}
+
+func (v *basicValue) AttrNames() []string {
+	switch v.kind {
+	case datamodel.Kind_String:
+		return v.stringMethodNames()
+	}
+	return nil
+}
+
+// starlark.String methods
 
 var stringMethods = []string{"capitalize", "count", "elems", "endswith", "find", "format",
 	"index", "isalnum", "isalpha", "isdigit", "islower", "isspace", "istitle", "isupper",
 	"join", "lower", "lstrip", "partition", "replace", "rfind", "rindex", "rpartition",
 	"rsplit", "rstrip", "split", "splitlines", "startswith", "strip", "title", "upper"}
 
-func (v *basicValue) Attr(name string) (starlark.Value, error) {
-	if v.kind != datamodel.Kind_String {
-		return starlark.None, fmt.Errorf("%T has no %s field or method", v, name)
-	}
+func (v *basicValue) stringMethodCall(name string) (starlark.Value, error) {
+	// convert value to a starlark.String
 	str, err := v.node.AsString()
 	if err != nil {
 		return starlark.None, err
 	}
 	strVal := starlark.String(str)
 	method := func(thread *starlark.Thread, b *starlark.Builtin, args starlark.Tuple, kwargs []starlark.Tuple) (starlark.Value, error) {
+		// get actual method from underlying starlark.String
 		method, err := strVal.Attr(name)
 		if err != nil {
 			return starlark.None, err
 		}
-		// Call it, and ensure the result is a DataFrame
+		// call the method, and convert the result to a datalark.Value
 		res, err := starlark.Call(thread, method, args, kwargs)
 		if err != nil {
 			return starlark.None, err
@@ -248,6 +264,6 @@ func (v *basicValue) Attr(name string) (starlark.Value, error) {
 	return starlark.NewBuiltin(name, method), nil
 }
 
-func (v *basicValue) AttrNames() []string {
+func (v *basicValue) stringMethodNames() []string {
 	return stringMethods
 }

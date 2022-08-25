@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/ipld/go-ipld-prime/datamodel"
+	"github.com/ipld/go-ipld-prime/node/basicnode"
 	"github.com/ipld/go-ipld-prime/printer"
 	"go.starlark.net/starlark"
 )
@@ -36,4 +37,24 @@ func (v *listValue) Truth() starlark.Bool {
 }
 func (v *listValue) Hash() (uint32, error) {
 	return 0, errors.New("TODO")
+}
+
+// NewList converts a starlark.List into a datalark.Value
+func NewList(list *starlark.List) (Value, error) {
+	nb := basicnode.Prototype.List.NewBuilder()
+	size := list.Len()
+	la, err := nb.BeginList(int64(size))
+	if err != nil {
+		return nil, err
+	}
+	for i := 0; i < size; i++ {
+		item := list.Index(i)
+		if err := assembleVal(la.AssembleValue(), item); err != nil {
+			return nil, fmt.Errorf("cannot add %v of type %T", item, item)
+		}
+	}
+	if err := la.Finish(); err != nil {
+		return nil, err
+	}
+	return newListValue(nb.Build()), nil
 }
