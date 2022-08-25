@@ -142,3 +142,18 @@ func assembleVal(na datamodel.NodeAssembler, sval starlark.Value) error {
 
 	return fmt.Errorf("could not coerce %v of type %q into ipld datamodel", sval, sval.Type())
 }
+
+// convert a generic starlark.Value into a datalark.Value
+func starlarkToDatalarkValue(val starlark.Value) (Value, error) {
+	if numVal, ok := val.(starlark.Int); ok {
+		n, ok := numVal.Int64()
+		if !ok {
+			return nil, fmt.Errorf("int64 out or range, could not convert: %v", val)
+		}
+		return NewInt(n), nil
+	}
+	if strVal, ok := val.(starlark.String); ok {
+		return NewString(string(strVal)), nil
+	}
+	panic(fmt.Sprintf("TODO(dustmop): implement starlarkToDatalarkValue for %T", val))
+}

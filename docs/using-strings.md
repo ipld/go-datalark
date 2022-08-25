@@ -17,8 +17,10 @@ All of the standard string methods are available
 ```python
 text = datalark.String('Hello There')
 print(text)
-print(text.upper());
-print(text.lower());
+print(text.upper())
+print(text.lower())
+print(text.count('l'))
+print(len(text))
 ```
 
 [testmark]:# (hello-strings/hello-strings/output)
@@ -26,4 +28,6 @@ print(text.lower());
 string{"Hello There"}
 string{"HELLO THERE"}
 string{"hello there"}
+int{2}
+11
 ```

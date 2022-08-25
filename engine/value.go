@@ -25,6 +25,7 @@ type basicValue struct {
 
 var _ Value = (*basicValue)(nil)
 var _ starlark.HasBinary = (*basicValue)(nil)
+var _ starlark.Sequence = (*basicValue)(nil)
 var _ starlark.HasAttrs = (*basicValue)(nil)
 
 func newBasicValue(node datamodel.Node, kind datamodel.Kind) Value {
@@ -131,6 +132,8 @@ func NewLink(x datamodel.Link) Value {
 	return newBasicValue(nb.Build(), datamodel.Kind_Link)
 }
 
+// starlark.HasBinary
+
 func (v *basicValue) Binary(op syntax.Token, y starlark.Value, side starlark.Side) (starlark.Value, error) {
 	if op == syntax.PLUS || op == syntax.MINUS || op == syntax.STAR || op == syntax.SLASH {
 		if other, ok := y.(*basicValue); ok {
@@ -196,6 +199,26 @@ func (v *basicValue) binaryBasicOp(op syntax.Token, other *basicValue) (starlark
 	return starlark.None, fmt.Errorf("cannot apply op %s to %T and %T", op, v, other)
 }
 
+// starlark.Sequence
+
+func (v *basicValue) Iterate() starlark.Iterator {
+	panic(fmt.Errorf("TODO(dustmop): basicValue.Iterate not implemented for %T", v))
+}
+
+func (v *basicValue) Len() int {
+	switch v.kind {
+	case datamodel.Kind_String:
+		str, _ := v.node.AsString()
+		return len(str)
+		// TODO: datamodel.Bytes
+		// TODO: datamodel.List
+		// TODO: datamodel.Dict
+	}
+	return -1
+}
+
+// starlark.HasAttrs : starlark.String
+
 var stringMethods = []string{"capitalize", "count", "elems", "endswith", "find", "format",
 	"index", "isalnum", "isalpha", "isdigit", "islower", "isspace", "istitle", "isupper",
 	"join", "lower", "lstrip", "partition", "replace", "rfind", "rindex", "rpartition",
@@ -220,12 +243,7 @@ func (v *basicValue) Attr(name string) (starlark.Value, error) {
 		if err != nil {
 			return starlark.None, err
 		}
-		if strVal, ok := res.(starlark.String); ok {
-			return NewString(string(strVal)), nil
-		}
-		// TODO: Convert other starlark.Value types into datalark.Value
-		// This should be a common utility function
-		return res, nil
+		return starlarkToDatalarkValue(res)
 	}
 	return starlark.NewBuiltin(name, method), nil
 }
