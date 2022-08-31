@@ -33,3 +33,43 @@ map<FruitColors>{
 }
 string<String>{"red"}
 ```
+
+Map Methods
+-----------
+
+All of the standard map (dict) methods are available
+
+[testmark]:# (hello-maps/map-methods/script.various/run)
+```python
+fruits = datalark.Map(_={'a': 'apple', 'b': 'banana'})
+print(fruits)
+print(fruits.keys())
+print(fruits.values())
+print(fruits.items())
+```
+
+[testmark]:# (hello-maps/map-methods/output)
+```text
+map{
+	string{"a"}: string{"apple"}
+	string{"b"}: string{"banana"}
+}
+list{
+	0: string{"a"}
+	1: string{"b"}
+}
+list{
+	0: string{"apple"}
+	1: string{"banana"}
+}
+list{
+	0: list{
+		0: string{"a"}
+		1: string{"apple"}
+	}
+	1: list{
+		0: string{"b"}
+		1: string{"banana"}
+	}
+}
+```

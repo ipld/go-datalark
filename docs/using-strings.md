@@ -11,9 +11,12 @@ tests like this.
 type RemoveMe {String:String}
 ```
 
+String Methods
+--------------
+
 All of the standard string methods are available
 
-[testmark]:# (hello-strings/hello-strings/script.various/construct)
+[testmark]:# (hello-strings/string-methods/script.various/run)
 ```python
 text = datalark.String('Hello There')
 print(text)
@@ -23,7 +26,7 @@ print(text.count('l'))
 print(len(text))
 ```
 
-[testmark]:# (hello-strings/hello-strings/output)
+[testmark]:# (hello-strings/string-methods/output)
 ```text
 string{"Hello There"}
 string{"HELLO THERE"}

@@ -156,6 +156,7 @@ func buildArgSeq(args starlark.Tuple, kwargs []starlark.Tuple) (*ArgSeq, error) 
 		}
 		return argseq, nil
 	default:
+		// args and kwargs both empty, empty argseq already built
 		return argseq, nil
 	}
 }
@@ -178,6 +179,7 @@ func asString(v starlark.Value) string {
 	return v.String()
 }
 
+// how many arguments are allowed vs needed
 type requireInfo struct {
 	allowed int
 	needed  int
@@ -195,6 +197,7 @@ func (ri *requireInfo) ensureValidNumFields(fieldNames []starlark.Value, argseq 
 	return fmt.Errorf("expected %d values (%s), only got %d", len(fieldNames), strings.Join(fieldList, ","), len(argseq.vals))
 }
 
+// get the struct's field names and info about how many arguments are allowed vs needed
 func getStructFieldInfo(structObj *schema.TypeStruct) ([]starlark.Value, *requireInfo) {
 	needed := 0
 	allowed := 0
