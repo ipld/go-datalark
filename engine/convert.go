@@ -146,16 +146,30 @@ func assembleVal(na datamodel.NodeAssembler, sval starlark.Value) error {
 // convert a generic starlark.Value into a datalark.Value
 func starlarkToDatalarkValue(val starlark.Value) (Value, error) {
 	switch it := val.(type) {
+	case starlark.NoneType:
+		panic("TODO(dustmop): implement starlarkToDatalarkValue for none")
+	case starlark.Bool:
+		panic("TODO(dustmop): implement starlarkToDatalarkValue for bool")
 	case starlark.Int:
 		n, ok := it.Int64()
 		if !ok {
 			return nil, fmt.Errorf("int64 out or range, could not convert: %v", val)
 		}
 		return NewInt(n), nil
+	case starlark.Float:
+		panic("TODO(dustmop): implement starlarkToDatalarkValue for float")
 	case starlark.String:
 		return NewString(string(it)), nil
 	case *starlark.List:
 		return NewList(it)
+	case starlark.Tuple:
+		panic("TODO(dustmop): implement starlarkToDatalarkValue for tuple")
+	case starlark.Bytes:
+		panic("TODO(dustmop): implement starlarkToDatalarkValue for bytes")
+	case *starlark.Dict:
+		panic("TODO(dustmop): implement starlarkToDatalarkValue for dict")
+	default:
+		// Set, Function, Builtin
+		panic(fmt.Sprintf("TODO(dustmop): implement starlarkToDatalarkValue for %T", val))
 	}
-	panic(fmt.Sprintf("TODO(dustmop): implement starlarkToDatalarkValue for %T", val))
 }
