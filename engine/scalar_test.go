@@ -110,3 +110,17 @@ print(n)`)
 	expectError = `cannot create Bool from 34 of type Int`
 	assertEqual(t, err.Error(), expectError)
 }
+
+func TestLenBuiltinForStringAndBytes(t *testing.T) {
+	mustParseSchemaRunScriptAssertOutput(t, "", "", `
+		s = datalark.String('hi')
+		print(len(s))
+		
+		d = datalark.Bytes(bytes([0x12, 0x56, 0x90]))
+		print(len(d))
+`,
+		`2
+3
+`,
+	)
+}

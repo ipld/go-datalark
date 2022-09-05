@@ -210,8 +210,9 @@ func (v *basicValue) Len() int {
 	case datamodel.Kind_String:
 		str, _ := v.node.AsString()
 		return len(str)
-		// TODO: datamodel.Bytes
-		// TODO: datamodel.List
+	case datamodel.Kind_Bytes:
+		bytes, _ := v.node.AsBytes()
+		return len(bytes)
 	}
 	return -1
 }

@@ -46,6 +46,7 @@ print(fruits)
 print(fruits.keys())
 print(fruits.values())
 print(fruits.items())
+print(len(fruits))
 ```
 
 [testmark]:# (hello-maps/map-methods/output)
@@ -72,4 +73,5 @@ list{
 		1: string{"banana"}
 	}
 }
+2
 ```

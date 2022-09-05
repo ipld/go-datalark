@@ -329,3 +329,17 @@ struct<Alpha>{
 `)
 
 }
+
+func TestLenBuiltinForListAndMap(t *testing.T) {
+	mustParseSchemaRunScriptAssertOutput(t, "", "", `
+		ls = datalark.List(_=[3,4,5,6])
+		print(len(ls))
+		
+		m = datalark.Map(_={'a': 'apple', 'b': 'banana'})
+		print(len(m))
+`,
+		`4
+2
+`,
+	)
+}

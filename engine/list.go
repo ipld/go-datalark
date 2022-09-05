@@ -15,6 +15,7 @@ type listValue struct {
 }
 
 var _ Value = (*listValue)(nil)
+var _ starlark.Sequence = (*listValue)(nil)
 
 func newListValue(node datamodel.Node) Value {
 	return &listValue{node}
@@ -57,4 +58,14 @@ func NewList(list *starlark.List) (Value, error) {
 		return nil, err
 	}
 	return newListValue(nb.Build()), nil
+}
+
+// starlark.Sequence
+
+func (v *listValue) Iterate() starlark.Iterator {
+	panic(fmt.Errorf("TODO(dustmop): listValue.Iterate not implemented for %T", v))
+}
+
+func (v *listValue) Len() int {
+	return int(v.node.Length())
 }
