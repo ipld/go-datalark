@@ -147,9 +147,10 @@ func assembleVal(na datamodel.NodeAssembler, sval starlark.Value) error {
 func starlarkToDatalarkValue(val starlark.Value) (Value, error) {
 	switch it := val.(type) {
 	case starlark.NoneType:
-		panic("TODO(dustmop): implement starlarkToDatalarkValue for none")
+		return NewNull(), nil
 	case starlark.Bool:
-		panic("TODO(dustmop): implement starlarkToDatalarkValue for bool")
+		b := bool(it)
+		return NewBool(b), nil
 	case starlark.Int:
 		n, ok := it.Int64()
 		if !ok {
@@ -157,19 +158,18 @@ func starlarkToDatalarkValue(val starlark.Value) (Value, error) {
 		}
 		return NewInt(n), nil
 	case starlark.Float:
-		panic("TODO(dustmop): implement starlarkToDatalarkValue for float")
+		f := float64(it)
+		return NewFloat(f), nil
 	case starlark.String:
 		return NewString(string(it)), nil
 	case *starlark.List:
 		return NewList(it)
-	case starlark.Tuple:
-		panic("TODO(dustmop): implement starlarkToDatalarkValue for tuple")
 	case starlark.Bytes:
-		panic("TODO(dustmop): implement starlarkToDatalarkValue for bytes")
+		return NewBytes([]byte(string(it))), nil
 	case *starlark.Dict:
 		panic("TODO(dustmop): implement starlarkToDatalarkValue for dict")
 	default:
-		// Set, Function, Builtin
-		panic(fmt.Sprintf("TODO(dustmop): implement starlarkToDatalarkValue for %T", val))
+		// Tuple, Set, Function, Builtin
+		panic(fmt.Sprintf("unsupported type for starlarkToDatalarkValue: %T", val))
 	}
 }

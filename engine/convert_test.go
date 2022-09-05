@@ -16,13 +16,37 @@ func assertDatalark(t *testing.T, expect, actual Value) {
 }
 
 func TestStarlarkToDatalarkValue(t *testing.T) {
+	// Null
+	dv, err := starlarkToDatalarkValue(starlark.None)
+	if err != nil {
+		t.Fatal(err)
+	}
+	expectNull := NewNull()
+	assertDatalark(t, expectNull, dv)
+
+	// Bool
+	dv, err = starlarkToDatalarkValue(starlark.Bool(true))
+	if err != nil {
+		t.Fatal(err)
+	}
+	expectBool := NewBool(true)
+	assertDatalark(t, expectBool, dv)
+
 	// Int
-	dv, err := starlarkToDatalarkValue(starlark.MakeInt(3))
+	dv, err = starlarkToDatalarkValue(starlark.MakeInt(3))
 	if err != nil {
 		t.Fatal(err)
 	}
 	expectInt := NewInt(3)
 	assertDatalark(t, expectInt, dv)
+
+	// Float
+	dv, err = starlarkToDatalarkValue(starlark.Float(5.5))
+	if err != nil {
+		t.Fatal(err)
+	}
+	expectFloat := NewFloat(5.5)
+	assertDatalark(t, expectFloat, dv)
 
 	// String
 	dv, err = starlarkToDatalarkValue(starlark.String("apple"))
@@ -43,4 +67,12 @@ func TestStarlarkToDatalarkValue(t *testing.T) {
 		t.Fatal(err)
 	}
 	assertDatalark(t, expectList, dv)
+
+	// Bytes
+	dv, err = starlarkToDatalarkValue(starlark.Bytes([]byte{0x07, 0x08, 0x09}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	expectBytes := NewBytes([]byte{0x07, 0x08, 0x09})
+	assertDatalark(t, expectBytes, dv)
 }
