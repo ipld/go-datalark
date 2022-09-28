@@ -11,19 +11,27 @@ import (
 )
 
 type mapValue struct {
-	node datamodel.Node
+	node    datamodel.Node
+	added   map[string]starlark.Value
+	replace map[string]starlark.Value
 }
 
-var _ Value = (*mapValue)(nil)
-var _ starlark.Mapping = (*mapValue)(nil)
-var _ starlark.Sequence = (*mapValue)(nil)
-var _ starlark.HasAttrs = (*mapValue)(nil)
+// compile-time interface assertions
+var (
+	_ Value              = (*mapValue)(nil)
+	_ starlark.Value     = (*mapValue)(nil)
+	_ starlark.Mapping   = (*mapValue)(nil)
+	_ starlark.Sequence  = (*mapValue)(nil)
+	_ starlark.HasSetKey = (*mapValue)(nil)
+	_ starlark.HasAttrs  = (*mapValue)(nil)
+)
 
 func newMapValue(node datamodel.Node) Value {
-	return &mapValue{node}
+	return &mapValue{node, nil, nil}
 }
 
 func (v *mapValue) Node() datamodel.Node {
+	// TODO(dustmop): Check for changes, then apply them
 	return v.node
 }
 func (v *mapValue) Type() string {
@@ -33,7 +41,13 @@ func (v *mapValue) Type() string {
 	return fmt.Sprintf("datalark.Map")
 }
 func (v *mapValue) String() string {
-	return printer.Sprint(v.node)
+	lines := printer.Sprint(v.node)
+	lines = lines[:len(lines)-2]
+	for key, val := range v.added {
+		lines = fmt.Sprintf("%s\n\tstring{\"%s\"}: string{%s}", lines, key, val)
+	}
+	lines = fmt.Sprintf("%s\n}", lines)
+	return lines
 }
 func (v *mapValue) Freeze() {}
 func (v *mapValue) Truth() starlark.Bool {
@@ -70,7 +84,7 @@ func (v *mapValue) Iterate() starlark.Iterator {
 }
 
 func (v *mapValue) Len() int {
-	return int(v.node.Length())
+	return int(v.node.Length()) + len(v.added)
 }
 
 // starlark.HasAttrs : starlark.Map
@@ -117,4 +131,25 @@ func (v *mapValue) Attr(name string) (starlark.Value, error) {
 
 func (v *mapValue) AttrNames() []string {
 	return mapMethods
+}
+
+// starlark.HasSetKey
+
+// SetKey assigns a value to a map at the given key
+func (v *mapValue) SetKey(nameVal, val starlark.Value) error {
+	var name string
+	name, _ = starlark.AsString(nameVal)
+	exist, _ := v.node.LookupByString(name)
+	if exist == nil {
+		if v.added == nil {
+			v.added = make(map[string]starlark.Value)
+		}
+		v.added[name] = val
+	} else {
+		if v.replace == nil {
+			v.replace = make(map[string]starlark.Value)
+		}
+		v.replace[name] = val
+	}
+	return nil
 }

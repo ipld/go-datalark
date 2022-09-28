@@ -59,3 +59,21 @@ list{
 }
 `)
 }
+
+func TestMapAssign(t *testing.T) {
+	mustParseSchemaRunScriptAssertOutput(t,
+		`
+	`,
+		`mytypes`,
+		`
+m = datalark.Map(_={'a': 'apple', 'b': 'banana'})
+m['c'] = 'cherry'
+print(m)
+`, `
+map{
+	string{"a"}: string{"apple"}
+	string{"b"}: string{"banana"}
+	string{"c"}: string{"cherry"}
+}
+`)
+}
