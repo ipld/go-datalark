@@ -68,12 +68,27 @@ func TestMapAssign(t *testing.T) {
 		`
 m = datalark.Map(_={'a': 'apple', 'b': 'banana'})
 m['c'] = 'cherry'
+print(len(m))
 print(m)
+print(len(m))
+m['b'] = 'berry'
+print(len(m))
+print(m)
+print(len(m))
 `, `
+3
 map{
 	string{"a"}: string{"apple"}
 	string{"b"}: string{"banana"}
 	string{"c"}: string{"cherry"}
 }
+3
+3
+map{
+	string{"a"}: string{"apple"}
+	string{"b"}: string{"berry"}
+	string{"c"}: string{"cherry"}
+}
+3
 `)
 }

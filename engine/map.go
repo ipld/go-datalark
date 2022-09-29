@@ -12,8 +12,8 @@ import (
 
 type mapValue struct {
 	node    datamodel.Node
-	added   map[string]starlark.Value
-	replace map[string]starlark.Value
+	added   map[string]datamodel.Node
+	replace map[string]datamodel.Node
 }
 
 // compile-time interface assertions
@@ -31,7 +31,7 @@ func newMapValue(node datamodel.Node) Value {
 }
 
 func (v *mapValue) Node() datamodel.Node {
-	// TODO(dustmop): Check for changes, then apply them
+	v.applyChangesToNode()
 	return v.node
 }
 func (v *mapValue) Type() string {
@@ -41,13 +41,8 @@ func (v *mapValue) Type() string {
 	return fmt.Sprintf("datalark.Map")
 }
 func (v *mapValue) String() string {
-	lines := printer.Sprint(v.node)
-	lines = lines[:len(lines)-2]
-	for key, val := range v.added {
-		lines = fmt.Sprintf("%s\n\tstring{\"%s\"}: string{%s}", lines, key, val)
-	}
-	lines = fmt.Sprintf("%s\n}", lines)
-	return lines
+	v.applyChangesToNode()
+	return printer.Sprint(v.node)
 }
 func (v *mapValue) Freeze() {}
 func (v *mapValue) Truth() starlark.Bool {
@@ -137,19 +132,74 @@ func (v *mapValue) AttrNames() []string {
 
 // SetKey assigns a value to a map at the given key
 func (v *mapValue) SetKey(nameVal, val starlark.Value) error {
+
+	dv, err := starlarkToDatalarkValue(val)
+	if err != nil {
+		return err
+	}
+	node := dv.Node()
+
 	var name string
 	name, _ = starlark.AsString(nameVal)
 	exist, _ := v.node.LookupByString(name)
 	if exist == nil {
 		if v.added == nil {
-			v.added = make(map[string]starlark.Value)
+			v.added = make(map[string]datamodel.Node)
 		}
-		v.added[name] = val
+		v.added[name] = node
 	} else {
 		if v.replace == nil {
-			v.replace = make(map[string]starlark.Value)
+			v.replace = make(map[string]datamodel.Node)
 		}
-		v.replace[name] = val
+		v.replace[name] = node
 	}
+	return nil
+}
+
+func (v *mapValue) applyChangesToNode() error {
+	// TODO: If added and replace are both empty, return fast
+	nb := v.node.Prototype().NewBuilder()
+	size := v.Len()
+	ma, err := nb.BeginMap(int64(size))
+	if err != nil {
+		return err
+	}
+
+	//
+	miter := v.node.MapIterator()
+	for !miter.Done() {
+		key, val, err := miter.Next()
+		if err != nil {
+			return err
+		}
+		keystr, err := key.AsString()
+		if err != nil {
+			return err
+		}
+		na := ma.AssembleKey()
+		na.AssignString(keystr)
+		if repl, ok := v.replace[keystr]; ok {
+			na = ma.AssembleValue()
+			na.AssignNode(repl)
+			continue
+		}
+		na = ma.AssembleValue()
+		na.AssignNode(val)
+	}
+
+	for keystr, val := range v.added {
+		na := ma.AssembleKey()
+		na.AssignString(keystr)
+		na = ma.AssembleValue()
+		na.AssignNode(val)
+	}
+
+	err = ma.Finish()
+	if err != nil {
+		return err
+	}
+	v.node = nb.Build()
+	v.added = make(map[string]datamodel.Node)
+	v.replace = make(map[string]datamodel.Node)
 	return nil
 }
