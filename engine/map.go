@@ -157,7 +157,12 @@ func (v *mapValue) SetKey(nameVal, val starlark.Value) error {
 }
 
 func (v *mapValue) applyChangesToNode() error {
-	// TODO: If added and replace are both empty, return fast
+	// if there are no changes, just return fast
+	if len(v.added) == 0 && len(v.replace) == 0 {
+		return nil
+	}
+
+	// start building a new map node
 	nb := v.node.Prototype().NewBuilder()
 	size := v.Len()
 	ma, err := nb.BeginMap(int64(size))
@@ -165,9 +170,10 @@ func (v *mapValue) applyChangesToNode() error {
 		return err
 	}
 
-	//
+	// iterate the contents of the previous map node
 	miter := v.node.MapIterator()
 	for !miter.Done() {
+		// get the key and convert to a string
 		key, val, err := miter.Next()
 		if err != nil {
 			return err
@@ -176,24 +182,40 @@ func (v *mapValue) applyChangesToNode() error {
 		if err != nil {
 			return err
 		}
+
+		// assign the string key to the new builder
 		na := ma.AssembleKey()
-		na.AssignString(keystr)
+		if err = na.AssignString(keystr); err != nil {
+			return err
+		}
 		if repl, ok := v.replace[keystr]; ok {
+			// if this key was replaced, use the replacement value
 			na = ma.AssembleValue()
-			na.AssignNode(repl)
+			if err = na.AssignNode(repl); err != nil {
+				return err
+			}
 			continue
 		}
+		// otherwise copy the original value
 		na = ma.AssembleValue()
-		na.AssignNode(val)
+		if err = na.AssignNode(val); err != nil {
+			return err
+		}
 	}
 
+	// add new keys and values to the new builder
 	for keystr, val := range v.added {
 		na := ma.AssembleKey()
-		na.AssignString(keystr)
+		if err = na.AssignString(keystr); err != nil {
+			return nil
+		}
 		na = ma.AssembleValue()
-		na.AssignNode(val)
+		if err = na.AssignNode(val); err != nil {
+			return nil
+		}
 	}
 
+	// finish up and clear the mutation maps
 	err = ma.Finish()
 	if err != nil {
 		return err
