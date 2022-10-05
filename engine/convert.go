@@ -16,6 +16,14 @@ import (
 	"go.starlark.net/starlark"
 )
 
+func nodeToHost(n datamodel.Node) Value {
+	val, err := ToValue(n)
+	if err != nil {
+		panic(err)
+	}
+	return val
+}
+
 func ToValue(n datamodel.Node) (Value, error) {
 	if nt, ok := n.(schema.TypedNode); ok {
 		switch nt.Type().TypeKind() {
@@ -53,15 +61,7 @@ func ToValue(n datamodel.Node) (Value, error) {
 	}
 }
 
-func MustToValue(n datamodel.Node) Value {
-	val, err := ToValue(n)
-	if err != nil {
-		panic(err)
-	}
-	return val
-}
-
-// assembleVal assigns the incoming starlark Value to the node assembler
+// assembleFrom assigns the incoming starlark Value to the node assembler
 //
 // Attempt to put the starlark Value into the ipld NodeAssembler.
 // If we see it's one of our own wrapped types, yank it back out and use AssignNode.
@@ -75,61 +75,57 @@ func MustToValue(n datamodel.Node) Value {
 // However, there is no support for primitives unless they're one of the concrete types from the starlark package;
 // starlark doesn't have a concept of a data model where you can ask what "kind" something is,
 // so if it's not *literally* one of the concrete types that we can match on, well, we're outta luck.
-func assembleVal(na datamodel.NodeAssembler, sval starlark.Value) error {
-	// if the incoming value is already a datalark Value, use its Node
-	if v, ok := sval.(Value); ok {
-		return na.AssignNode(v.Node())
+func assembleFrom(na datamodel.NodeAssembler, starVal starlark.Value) error {
+	// if input value is already a hosted datalark Value, use its Node
+	if hostVal, ok := starVal.(Value); ok {
+		return na.AssignNode(hostVal.Node())
 	}
 
-	// Try any of the starlark primitives we can recognize.
-	// TODO(dustmop): Add explicit type-checking to each case. The nodeAssmebler
-	// must have compatible type with the incoming value to assign, otherwise
-	// the error comes from the nodeAssembler and may not accurately describe the
-	// problem
-	switch s2 := sval.(type) {
+	// try any of the starlark primitives we can recognize
+	switch starObj := starVal.(type) {
 	case starlark.Bool:
-		return na.AssignBool(bool(s2))
+		return na.AssignBool(bool(starObj))
 	case starlark.Int:
-		i, ok := s2.Int64()
+		i, ok := starObj.Int64()
 		if !ok {
-			return fmt.Errorf("could not convert %v to int64", sval)
+			return fmt.Errorf("could not convert %v to int64", starVal)
 		}
 		return na.AssignInt(i)
 	case starlark.Float:
-		return na.AssignFloat(float64(s2))
+		return na.AssignFloat(float64(starObj))
 	case starlark.String:
-		return na.AssignString(string(s2))
+		return na.AssignString(string(starObj))
 	case starlark.Bytes:
-		return na.AssignBytes([]byte(s2))
+		return na.AssignBytes([]byte(starObj))
 	case starlark.IterableMapping:
 		size := -1
-		if seq, ok := s2.(starlark.Sequence); ok {
+		if starSeq, ok := starObj.(starlark.Sequence); ok {
 			// TODO(dustmop): If this conversion fails, size will be invalid
-			size = seq.Len()
+			size = starSeq.Len()
 		}
 		ma, err := na.BeginMap(int64(size))
 		if err != nil {
 			return err
 		}
-		itr := s2.Iterate()
-		defer itr.Done()
-		var k starlark.Value
-		for itr.Next(&k) {
-			if err := assembleVal(ma.AssembleKey(), k); err != nil {
+		starIter := starObj.Iterate()
+		defer starIter.Done()
+		var sval starlark.Value
+		for starIter.Next(&sval) {
+			if err := assembleFrom(ma.AssembleKey(), sval); err != nil {
 				return err
 			}
-			v, _, err := s2.Get(k)
+			sval, _, err := starObj.Get(sval)
 			if err != nil {
 				return err
 			}
-			if err := assembleVal(ma.AssembleValue(), v); err != nil {
+			if err := assembleFrom(ma.AssembleValue(), sval); err != nil {
 				return err
 			}
 		}
 		return ma.Finish()
 	case starlark.Iterable:
 		size := -1
-		if seq, ok := s2.(starlark.Sequence); ok {
+		if seq, ok := starObj.(starlark.Sequence); ok {
 			// TODO(dustmop): If this conversion fails, size will be invalid
 			size = seq.Len()
 		}
@@ -137,22 +133,22 @@ func assembleVal(na datamodel.NodeAssembler, sval starlark.Value) error {
 		if err != nil {
 			return err
 		}
-		itr := s2.Iterate()
-		defer itr.Done()
-		var v starlark.Value
-		for itr.Next(&v) {
-			if err := assembleVal(la.AssembleValue(), v); err != nil {
+		starIter := starObj.Iterate()
+		defer starIter.Done()
+		var sval starlark.Value
+		for starIter.Next(&sval) {
+			if err := assembleFrom(la.AssembleValue(), sval); err != nil {
 				return err
 			}
 		}
 		return la.Finish()
 	}
 
-	return fmt.Errorf("could not coerce %v of type %q into ipld datamodel", sval, sval.Type())
+	return fmt.Errorf("could not coerce %v of type %q into ipld datamodel", starVal, starVal.Type())
 }
 
 // convert a generic starlark.Value into a datalark.Value
-func starlarkToDatalarkValue(val starlark.Value) (Value, error) {
+func starToHost(val starlark.Value) (Value, error) {
 	switch it := val.(type) {
 	case starlark.NoneType:
 		return NewNull(), nil
@@ -175,9 +171,9 @@ func starlarkToDatalarkValue(val starlark.Value) (Value, error) {
 	case starlark.Bytes:
 		return NewBytes([]byte(string(it))), nil
 	case *starlark.Dict:
-		panic("TODO(dustmop): implement starlarkToDatalarkValue for dict")
+		panic("TODO(dustmop): implement starToHost for dict")
 	default:
 		// Tuple, Set, Function, Builtin
-		panic(fmt.Sprintf("unsupported type for starlarkToDatalarkValue: %T", val))
+		panic(fmt.Sprintf("unsupported type for starToHost: %T", val))
 	}
 }

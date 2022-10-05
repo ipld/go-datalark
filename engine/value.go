@@ -244,25 +244,26 @@ var stringMethods = []string{"capitalize", "count", "elems", "endswith", "find",
 
 func (v *basicValue) stringMethodCall(name string) (starlark.Value, error) {
 	// convert value to a starlark.String
-	str, err := v.node.AsString()
+	gstr, err := v.node.AsString()
 	if err != nil {
 		return starlark.None, err
 	}
-	strVal := starlark.String(str)
-	method := func(thread *starlark.Thread, b *starlark.Builtin, args starlark.Tuple, kwargs []starlark.Tuple) (starlark.Value, error) {
+	starString := starlark.String(gstr)
+	// get the method and return it
+	starMethod := func(thread *starlark.Thread, b *starlark.Builtin, args starlark.Tuple, kwargs []starlark.Tuple) (starlark.Value, error) {
 		// get actual method from underlying starlark.String
-		method, err := strVal.Attr(name)
+		starMethod, err := starString.Attr(name)
 		if err != nil {
 			return starlark.None, err
 		}
-		// call the method, and convert the result to a datalark.Value
-		res, err := starlark.Call(thread, method, args, kwargs)
+		// call the method, and convert the result to a hosted datalark.Value
+		starRes, err := starlark.Call(thread, starMethod, args, kwargs)
 		if err != nil {
 			return starlark.None, err
 		}
-		return starlarkToDatalarkValue(res)
+		return starToHost(starRes)
 	}
-	return starlark.NewBuiltin(name, method), nil
+	return starlark.NewBuiltin(name, starMethod), nil
 }
 
 func (v *basicValue) stringMethodNames() []string {

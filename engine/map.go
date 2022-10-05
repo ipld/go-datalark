@@ -4,7 +4,7 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/ipld/go-ipld-prime/datamodel"
+	ipldmodel "github.com/ipld/go-ipld-prime/datamodel"
 	"github.com/ipld/go-ipld-prime/node/basicnode"
 	"github.com/ipld/go-ipld-prime/printer"
 	"github.com/ipld/go-ipld-prime/schema"
@@ -12,9 +12,9 @@ import (
 )
 
 type mapValue struct {
-	node    datamodel.Node
-	added   map[string]datamodel.Node
-	replace map[string]datamodel.Node
+	node    ipldmodel.Node
+	add     map[string]ipldmodel.Node
+	replace map[string]ipldmodel.Node
 }
 
 // compile-time interface assertions
@@ -27,11 +27,11 @@ var (
 	_ starlark.HasAttrs  = (*mapValue)(nil)
 )
 
-func newMapValue(node datamodel.Node) Value {
+func newMapValue(node ipldmodel.Node) Value {
 	return &mapValue{node, nil, nil}
 }
 
-func (v *mapValue) Node() datamodel.Node {
+func (v *mapValue) Node() ipldmodel.Node {
 	v.applyChangesToNode()
 	return v.node
 }
@@ -80,7 +80,7 @@ func (v *mapValue) Iterate() starlark.Iterator {
 }
 
 func (v *mapValue) Len() int {
-	return int(v.node.Length()) + len(v.added)
+	return int(v.node.Length()) + len(v.add)
 }
 
 // starlark.HasAttrs : starlark.Map
@@ -125,80 +125,75 @@ func _mapGet(mv *mapValue, args starlark.Tuple, kwargs []starlark.Tuple) (starla
 	return starlark.None, nil
 }
 
-func appendTwoItemList(ls []starlark.Value, knode datamodel.Node, vnode datamodel.Node) ([]starlark.Value, error) {
-	k, err := ToValue(knode)
+func appendTwoItemListAsHost(hostList []starlark.Value, none ipldmodel.Node, ntwo ipldmodel.Node) ([]starlark.Value, error) {
+	h := nodeToHost(none)
+	g := nodeToHost(ntwo)
+	newHostList, err := NewList(starlark.NewList([]starlark.Value{h, g}))
 	if err != nil {
 		return nil, err
 	}
-	v, err := ToValue(vnode)
-	if err != nil {
-		return nil, err
-	}
-	newList, err := NewList(starlark.NewList([]starlark.Value{k, v}))
-	if err != nil {
-		return nil, err
-	}
-	return append(ls, newList), nil
+	return append(hostList, newHostList), nil
 }
 
 func _mapItems(mv *mapValue, args starlark.Tuple, kwargs []starlark.Tuple) (starlark.Value, error) {
-	var items []starlark.Value
+	var hostItems []starlark.Value
 	var err error
 
-	miter := mv.node.MapIterator()
-	for !miter.Done() {
+	nodeMapIter := mv.node.MapIterator()
+	for !nodeMapIter.Done() {
 		// get the key and convert to a string
-		key, val, err := miter.Next()
+		nkey, nval, err := nodeMapIter.Next()
 		if err != nil {
 			return starlark.None, err
 		}
-		keystr, err := key.AsString()
+		gstrKey, err := nkey.AsString()
 		if err != nil {
 			return starlark.None, err
 		}
 
-		if repl, ok := mv.replace[keystr]; ok {
-			items, err = appendTwoItemList(items, key, repl)
+		if nodeReplace, ok := mv.replace[gstrKey]; ok {
+			hostItems, err = appendTwoItemListAsHost(hostItems, nkey, nodeReplace)
 			if err != nil {
 				return starlark.None, err
 			}
 			continue
 		}
-		items, err = appendTwoItemList(items, key, val)
+		hostItems, err = appendTwoItemListAsHost(hostItems, nkey, nval)
 		if err != nil {
 			return starlark.None, err
 		}
 	}
 
 	// add new keys and values to the new builder
-	for keystr, val := range mv.added {
-		items, err = appendTwoItemList(items, basicnode.NewString(keystr), val)
+	for gstrKey, nval := range mv.add {
+		hostItems, err = appendTwoItemListAsHost(hostItems, basicnode.NewString(gstrKey), nval)
 		if err != nil {
 			return starlark.None, err
 		}
 	}
 
-	return NewList(starlark.NewList(items))
+	return NewList(starlark.NewList(hostItems))
 }
 
 func _mapKeys(mv *mapValue, args starlark.Tuple, kwargs []starlark.Tuple) (starlark.Value, error) {
-	var items []starlark.Value
+	var hostItems []starlark.Value
 
-	miter := mv.node.MapIterator()
-	for !miter.Done() {
-		key, _, err := miter.Next()
+	nodeMapIter := mv.node.MapIterator()
+	for !nodeMapIter.Done() {
+		nkey, _, err := nodeMapIter.Next()
 		if err != nil {
 			return starlark.None, err
 		}
-		items = append(items, MustToValue(key))
+		hostItems = append(hostItems, nodeToHost(nkey))
 	}
 
 	// add new keys and values to the new builder
-	for keystr := range mv.added {
-		items = append(items, MustToValue(basicnode.NewString(keystr)))
+	for gstrKey := range mv.add {
+		hostItems = append(hostItems, nodeToHost(basicnode.NewString(gstrKey)))
 	}
 
-	return NewList(starlark.NewList(items))
+	// return as a datalark.Value(*datalark.List) with starlark.Value interface
+	return NewList(starlark.NewList(hostItems))
 }
 
 func _mapPop(mv *mapValue, args starlark.Tuple, kwargs []starlark.Tuple) (starlark.Value, error) {
@@ -218,33 +213,36 @@ func _mapUpdate(mv *mapValue, args starlark.Tuple, kwargs []starlark.Tuple) (sta
 }
 
 func _mapValues(mv *mapValue, args starlark.Tuple, kwargs []starlark.Tuple) (starlark.Value, error) {
-	var items []starlark.Value
+	// all content should be datalark.Node, but using a starlark.Value interface
+	var hostItems []starlark.Value
 
-	miter := mv.node.MapIterator()
-	for !miter.Done() {
-		// get the key and convert to a string
-		key, val, err := miter.Next()
+	nodeMapIter := mv.node.MapIterator()
+	for !nodeMapIter.Done() {
+		// get the ipld key and convert it to a go-lang string
+		nkey, nval, err := nodeMapIter.Next()
 		if err != nil {
 			return starlark.None, err
 		}
-		keystr, err := key.AsString()
+		gstrKey, err := nkey.AsString()
 		if err != nil {
 			return starlark.None, err
 		}
 
-		if repl, ok := mv.replace[keystr]; ok {
-			items = append(items, MustToValue(repl))
+		// if the value has been replaced, use the replacement
+		if nodeReplace, ok := mv.replace[gstrKey]; ok {
+			hostItems = append(hostItems, nodeToHost(nodeReplace))
 			continue
 		}
-		items = append(items, MustToValue(val))
+		hostItems = append(hostItems, nodeToHost(nval))
 	}
 
 	// add new keys and values to the new builder
-	for _, val := range mv.added {
-		items = append(items, MustToValue(val))
+	for _, nodeAdd := range mv.add {
+		hostItems = append(hostItems, nodeToHost(nodeAdd))
 	}
 
-	return NewList(starlark.NewList(items))
+	// return as a datalark.Value(*datalark.List) with starlark.Value interface
+	return NewList(starlark.NewList(hostItems))
 }
 
 func (v *mapValue) Attr(name string) (starlark.Value, error) {
@@ -268,7 +266,7 @@ func (v *mapValue) AttrNames() []string {
 // SetKey assigns a value to a map at the given key
 func (v *mapValue) SetKey(nameVal, val starlark.Value) error {
 
-	dv, err := starlarkToDatalarkValue(val)
+	dv, err := starToHost(val)
 	if err != nil {
 		return err
 	}
@@ -278,13 +276,13 @@ func (v *mapValue) SetKey(nameVal, val starlark.Value) error {
 	name, _ = starlark.AsString(nameVal)
 	exist, _ := v.node.LookupByString(name)
 	if exist == nil {
-		if v.added == nil {
-			v.added = make(map[string]datamodel.Node)
+		if v.add == nil {
+			v.add = make(map[string]ipldmodel.Node)
 		}
-		v.added[name] = node
+		v.add[name] = node
 	} else {
 		if v.replace == nil {
-			v.replace = make(map[string]datamodel.Node)
+			v.replace = make(map[string]ipldmodel.Node)
 		}
 		v.replace[name] = node
 	}
@@ -293,7 +291,7 @@ func (v *mapValue) SetKey(nameVal, val starlark.Value) error {
 
 func (v *mapValue) applyChangesToNode() error {
 	// if there are no changes, just return fast
-	if len(v.added) == 0 && len(v.replace) == 0 {
+	if len(v.add) == 0 && len(v.replace) == 0 {
 		return nil
 	}
 
@@ -339,13 +337,13 @@ func (v *mapValue) applyChangesToNode() error {
 	}
 
 	// add new keys and values to the new builder
-	for keystr, val := range v.added {
+	for gstrKey, nodeAdd := range v.add {
 		na := ma.AssembleKey()
-		if err = na.AssignString(keystr); err != nil {
+		if err = na.AssignString(gstrKey); err != nil {
 			return nil
 		}
 		na = ma.AssembleValue()
-		if err = na.AssignNode(val); err != nil {
+		if err = na.AssignNode(nodeAdd); err != nil {
 			return nil
 		}
 	}
@@ -356,7 +354,7 @@ func (v *mapValue) applyChangesToNode() error {
 		return err
 	}
 	v.node = nb.Build()
-	v.added = make(map[string]datamodel.Node)
-	v.replace = make(map[string]datamodel.Node)
+	v.add = make(map[string]ipldmodel.Node)
+	v.replace = make(map[string]ipldmodel.Node)
 	return nil
 }

@@ -17,7 +17,7 @@ func assertDatalark(t *testing.T, expect, actual Value) {
 
 func TestStarlarkToDatalarkValue(t *testing.T) {
 	// Null
-	dv, err := starlarkToDatalarkValue(starlark.None)
+	dv, err := starToHost(starlark.None)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -25,7 +25,7 @@ func TestStarlarkToDatalarkValue(t *testing.T) {
 	assertDatalark(t, expectNull, dv)
 
 	// Bool
-	dv, err = starlarkToDatalarkValue(starlark.Bool(true))
+	dv, err = starToHost(starlark.Bool(true))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -33,7 +33,7 @@ func TestStarlarkToDatalarkValue(t *testing.T) {
 	assertDatalark(t, expectBool, dv)
 
 	// Int
-	dv, err = starlarkToDatalarkValue(starlark.MakeInt(3))
+	dv, err = starToHost(starlark.MakeInt(3))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -41,7 +41,7 @@ func TestStarlarkToDatalarkValue(t *testing.T) {
 	assertDatalark(t, expectInt, dv)
 
 	// Float
-	dv, err = starlarkToDatalarkValue(starlark.Float(5.5))
+	dv, err = starToHost(starlark.Float(5.5))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -49,7 +49,7 @@ func TestStarlarkToDatalarkValue(t *testing.T) {
 	assertDatalark(t, expectFloat, dv)
 
 	// String
-	dv, err = starlarkToDatalarkValue(starlark.String("apple"))
+	dv, err = starToHost(starlark.String("apple"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -58,7 +58,7 @@ func TestStarlarkToDatalarkValue(t *testing.T) {
 
 	// List
 	values := []starlark.Value{starlark.MakeInt(1), starlark.MakeInt(2)}
-	dv, err = starlarkToDatalarkValue(starlark.NewList(values))
+	dv, err = starToHost(starlark.NewList(values))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -69,7 +69,7 @@ func TestStarlarkToDatalarkValue(t *testing.T) {
 	assertDatalark(t, expectList, dv)
 
 	// Bytes
-	dv, err = starlarkToDatalarkValue(starlark.Bytes([]byte{0x07, 0x08, 0x09}))
+	dv, err = starToHost(starlark.Bytes([]byte{0x07, 0x08, 0x09}))
 	if err != nil {
 		t.Fatal(err)
 	}

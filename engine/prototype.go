@@ -343,7 +343,7 @@ func constructBasicValue(p *Prototype, argseq *ArgSeq) (starlark.Value, error) {
 			return starlark.None, fmt.Errorf("wrong arguments for scalar constructor")
 		}
 		val := argseq.vals[0]
-		if err := assembleVal(nb, val); err != nil {
+		if err := assembleFrom(nb, val); err != nil {
 			gotType := reflect.TypeOf(val).Name()
 			return starlark.None, fmt.Errorf("cannot create %s from %v of type %s", p.TypeName(), val, gotType)
 		}
@@ -359,7 +359,7 @@ func constructBasicValue(p *Prototype, argseq *ArgSeq) (starlark.Value, error) {
 			return starlark.None, err
 		}
 		for _, val := range argseq.vals {
-			if err := assembleVal(la.AssembleValue(), val); err != nil {
+			if err := assembleFrom(la.AssembleValue(), val); err != nil {
 				gotType := reflect.TypeOf(val).Name()
 				return starlark.None, fmt.Errorf("cannot create %s from %v of type %s", p.TypeName(), val, gotType)
 			}
@@ -378,10 +378,10 @@ func constructBasicValue(p *Prototype, argseq *ArgSeq) (starlark.Value, error) {
 			return starlark.None, err
 		}
 		for i, n := range argseq.names {
-			if err := assembleVal(ma.AssembleKey(), starlark.String(n)); err != nil {
+			if err := assembleFrom(ma.AssembleKey(), starlark.String(n)); err != nil {
 				return starlark.None, err
 			}
-			if err := assembleVal(ma.AssembleValue(), argseq.vals[i]); err != nil {
+			if err := assembleFrom(ma.AssembleValue(), argseq.vals[i]); err != nil {
 				return starlark.None, err
 			}
 		}
@@ -403,7 +403,7 @@ func constructFromStringRepresentation(tp schema.TypedPrototype, argseq *ArgSeq)
 		return starlark.None, fmt.Errorf("arguments are not a single string")
 	}
 	nb := tp.Representation().NewBuilder()
-	if err := assembleVal(nb, argseq.vals[0]); err != nil {
+	if err := assembleFrom(nb, argseq.vals[0]); err != nil {
 		return starlark.None, err
 	}
 	return ToValue(nb.Build())
@@ -426,7 +426,7 @@ func constructUsingFieldsValues(nb datamodel.NodeBuilder, fieldNames []starlark.
 		if i >= len(argseq.vals) {
 			break
 		}
-		if err := assembleVal(ma.AssembleKey(), fieldNames[i]); err != nil {
+		if err := assembleFrom(ma.AssembleKey(), fieldNames[i]); err != nil {
 			return starlark.None, err
 		}
 		if err := assembleParameter(ma, argseq.vals[i], false); err != nil {
@@ -442,7 +442,7 @@ func constructUsingFieldsValues(nb datamodel.NodeBuilder, fieldNames []starlark.
 
 func assembleParameter(ma datamodel.MapAssembler, val starlark.Value, allowRepr bool) error {
 	na := ma.AssembleValue()
-	err := assembleVal(na, val)
+	err := assembleFrom(na, val)
 	// if `err` is non-nil, it may get reused below
 	if err == nil {
 		return nil
@@ -454,7 +454,7 @@ func assembleParameter(ma datamodel.MapAssembler, val starlark.Value, allowRepr 
 			// TODO(dustmop): Should this only be attempted if `ma` is from a
 			// representation assembler?
 			// TODO(dustmop): Should this block be run before the former block
-			// that just tries to use `assembleVal`? Probably harmless to run
+			// that just tries to use `assembleFrom`? Probably harmless to run
 			// that first, since it ignores any error.
 			if tn.Type().RepresentationBehavior() == datamodel.Kind_String {
 				str, err := tn.Representation().AsString()
@@ -480,7 +480,7 @@ func assembleParameter(ma datamodel.MapAssembler, val starlark.Value, allowRepr 
 
 	// then take the assembler's representation and try using that
 	builder := tp.Representation().NewBuilder()
-	if err := assembleVal(builder, val); err != nil {
+	if err := assembleFrom(builder, val); err != nil {
 		return err
 	}
 	return na.AssignNode(builder.Build())

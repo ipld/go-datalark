@@ -41,16 +41,16 @@ func (v *listValue) Hash() (uint32, error) {
 }
 
 // NewList converts a starlark.List into a datalark.Value
-func NewList(list *starlark.List) (Value, error) {
+func NewList(starList *starlark.List) (Value, error) {
 	nb := basicnode.Prototype.List.NewBuilder()
-	size := list.Len()
+	size := starList.Len()
 	la, err := nb.BeginList(int64(size))
 	if err != nil {
 		return nil, err
 	}
 	for i := 0; i < size; i++ {
-		item := list.Index(i)
-		if err := assembleVal(la.AssembleValue(), item); err != nil {
+		item := starList.Index(i)
+		if err := assembleFrom(la.AssembleValue(), item); err != nil {
 			return nil, fmt.Errorf("cannot add %v of type %T", item, item)
 		}
 	}
@@ -68,4 +68,16 @@ func (v *listValue) Iterate() starlark.Iterator {
 
 func (v *listValue) Len() int {
 	return int(v.node.Length())
+}
+
+// starlark.HasAttrs : starlark.List
+
+var listMethods = []string{"clear", "copy", "fromkeys", "get", "items", "keys", "pop", "popitem", "setdefault", "update", "values"}
+
+func (v *listValue) Attr(gstrName string) (starlark.Value, error) {
+	return starlark.None, nil
+}
+
+func (v *listValue) AttrNames() []string {
+	return listMethods
 }
