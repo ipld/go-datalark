@@ -53,6 +53,14 @@ func ToValue(n datamodel.Node) (Value, error) {
 	}
 }
 
+func MustToValue(n datamodel.Node) Value {
+	val, err := ToValue(n)
+	if err != nil {
+		panic(err)
+	}
+	return val
+}
+
 // assembleVal assigns the incoming starlark Value to the node assembler
 //
 // Attempt to put the starlark Value into the ipld NodeAssembler.

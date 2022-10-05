@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/ipld/go-ipld-prime/datamodel"
+	"github.com/ipld/go-ipld-prime/node/basicnode"
 	"github.com/ipld/go-ipld-prime/printer"
 	"github.com/ipld/go-ipld-prime/schema"
 	"go.starlark.net/starlark"
@@ -84,48 +85,182 @@ func (v *mapValue) Len() int {
 
 // starlark.HasAttrs : starlark.Map
 
-var mapMethods = []string{"clear", "copy", "fromkeys", "get", "items", "keys", "pop", "popitem", "setdefault", "update", "values"}
+type mapMethod func(*mapValue, starlark.Tuple, []starlark.Tuple) (starlark.Value, error)
+
+var mapMethods = map[string]*starlark.Builtin{
+	"clear":      NewMapMethod("clear", _mapClear, 0),
+	"copy":       NewMapMethod("copy", _mapCopy, 0),
+	"fromkeys":   NewMapMethod("fromkeys", _mapFromkeys, 2),
+	"get":        NewMapMethod("get", _mapGet, 2),
+	"items":      NewMapMethod("items", _mapItems, 0),
+	"keys":       NewMapMethod("keys", _mapKeys, 0),
+	"pop":        NewMapMethod("pop", _mapPop, 2),
+	"popitem":    NewMapMethod("popitem", _mapPopitem, 0),
+	"setdefault": NewMapMethod("setdefault", _mapSetdefault, 2),
+	"update":     NewMapMethod("update", _mapUpdate, 1),
+	"values":     NewMapMethod("values", _mapValues, 0),
+}
+
+func NewMapMethod(name string, meth mapMethod, numParam int) *starlark.Builtin {
+	starlarkMethod := func(_ *starlark.Thread, b *starlark.Builtin, args starlark.Tuple, kwargs []starlark.Tuple) (starlark.Value, error) {
+		mv := b.Receiver().(*mapValue)
+		return meth(mv, args, kwargs)
+	}
+	return starlark.NewBuiltin(name, starlarkMethod)
+}
+
+func _mapClear(mv *mapValue, args starlark.Tuple, kwargs []starlark.Tuple) (starlark.Value, error) {
+	return starlark.None, nil
+}
+
+func _mapCopy(mv *mapValue, args starlark.Tuple, kwargs []starlark.Tuple) (starlark.Value, error) {
+	return starlark.None, nil
+}
+
+func _mapFromkeys(mv *mapValue, args starlark.Tuple, kwargs []starlark.Tuple) (starlark.Value, error) {
+	return starlark.None, nil
+}
+
+func _mapGet(mv *mapValue, args starlark.Tuple, kwargs []starlark.Tuple) (starlark.Value, error) {
+	return starlark.None, nil
+}
+
+func appendTwoItemList(ls []starlark.Value, knode datamodel.Node, vnode datamodel.Node) ([]starlark.Value, error) {
+	k, err := ToValue(knode)
+	if err != nil {
+		return nil, err
+	}
+	v, err := ToValue(vnode)
+	if err != nil {
+		return nil, err
+	}
+	newList, err := NewList(starlark.NewList([]starlark.Value{k, v}))
+	if err != nil {
+		return nil, err
+	}
+	return append(ls, newList), nil
+}
+
+func _mapItems(mv *mapValue, args starlark.Tuple, kwargs []starlark.Tuple) (starlark.Value, error) {
+	var items []starlark.Value
+	var err error
+
+	miter := mv.node.MapIterator()
+	for !miter.Done() {
+		// get the key and convert to a string
+		key, val, err := miter.Next()
+		if err != nil {
+			return starlark.None, err
+		}
+		keystr, err := key.AsString()
+		if err != nil {
+			return starlark.None, err
+		}
+
+		if repl, ok := mv.replace[keystr]; ok {
+			items, err = appendTwoItemList(items, key, repl)
+			if err != nil {
+				return starlark.None, err
+			}
+			continue
+		}
+		items, err = appendTwoItemList(items, key, val)
+		if err != nil {
+			return starlark.None, err
+		}
+	}
+
+	// add new keys and values to the new builder
+	for keystr, val := range mv.added {
+		items, err = appendTwoItemList(items, basicnode.NewString(keystr), val)
+		if err != nil {
+			return starlark.None, err
+		}
+	}
+
+	return NewList(starlark.NewList(items))
+}
+
+func _mapKeys(mv *mapValue, args starlark.Tuple, kwargs []starlark.Tuple) (starlark.Value, error) {
+	var items []starlark.Value
+
+	miter := mv.node.MapIterator()
+	for !miter.Done() {
+		key, _, err := miter.Next()
+		if err != nil {
+			return starlark.None, err
+		}
+		items = append(items, MustToValue(key))
+	}
+
+	// add new keys and values to the new builder
+	for keystr := range mv.added {
+		items = append(items, MustToValue(basicnode.NewString(keystr)))
+	}
+
+	return NewList(starlark.NewList(items))
+}
+
+func _mapPop(mv *mapValue, args starlark.Tuple, kwargs []starlark.Tuple) (starlark.Value, error) {
+	return starlark.None, nil
+}
+
+func _mapPopitem(mv *mapValue, args starlark.Tuple, kwargs []starlark.Tuple) (starlark.Value, error) {
+	return starlark.None, nil
+}
+
+func _mapSetdefault(mv *mapValue, args starlark.Tuple, kwargs []starlark.Tuple) (starlark.Value, error) {
+	return starlark.None, nil
+}
+
+func _mapUpdate(mv *mapValue, args starlark.Tuple, kwargs []starlark.Tuple) (starlark.Value, error) {
+	return starlark.None, nil
+}
+
+func _mapValues(mv *mapValue, args starlark.Tuple, kwargs []starlark.Tuple) (starlark.Value, error) {
+	var items []starlark.Value
+
+	miter := mv.node.MapIterator()
+	for !miter.Done() {
+		// get the key and convert to a string
+		key, val, err := miter.Next()
+		if err != nil {
+			return starlark.None, err
+		}
+		keystr, err := key.AsString()
+		if err != nil {
+			return starlark.None, err
+		}
+
+		if repl, ok := mv.replace[keystr]; ok {
+			items = append(items, MustToValue(repl))
+			continue
+		}
+		items = append(items, MustToValue(val))
+	}
+
+	// add new keys and values to the new builder
+	for _, val := range mv.added {
+		items = append(items, MustToValue(val))
+	}
+
+	return NewList(starlark.NewList(items))
+}
 
 func (v *mapValue) Attr(name string) (starlark.Value, error) {
-	// convert map to a starlark.Dict. not efficient, because it makes a copy
-	dictVal := starlark.NewDict(v.Len())
-	iter := v.node.MapIterator()
-	for !iter.Done() {
-		k, v, err := iter.Next()
-		if err != nil {
-			return starlark.None, err
-		}
-		key, err := ToValue(k)
-		if err != nil {
-			return starlark.None, err
-		}
-		val, err := ToValue(v)
-		if err != nil {
-			return starlark.None, err
-		}
-		err = dictVal.SetKey(key, val)
-		if err != nil {
-			return starlark.None, err
-		}
+	builtin, ok := mapMethods[name]
+	if !ok {
+		return starlark.None, fmt.Errorf("attribute %s not found", name)
 	}
-	method := func(thread *starlark.Thread, b *starlark.Builtin, args starlark.Tuple, kwargs []starlark.Tuple) (starlark.Value, error) {
-		// get actual method from underlying starlark.Dict
-		method, err := dictVal.Attr(name)
-		if err != nil {
-			return starlark.None, err
-		}
-		// call the method, and convert the result to a datalark.Value
-		res, err := starlark.Call(thread, method, args, kwargs)
-		if err != nil {
-			return starlark.None, err
-		}
-		return starlarkToDatalarkValue(res)
-	}
-	return starlark.NewBuiltin(name, method), nil
+	return builtin.BindReceiver(v), nil
 }
 
 func (v *mapValue) AttrNames() []string {
-	return mapMethods
+	res := make([]string, 0, len(mapMethods))
+	for name := range mapMethods {
+		res = append(res, name)
+	}
+	return res
 }
 
 // starlark.HasSetKey
