@@ -83,45 +83,73 @@ func (v *mapValue) Len() int {
 	return int(v.node.Length()) + len(v.add)
 }
 
-// starlark.HasAttrs : starlark.Map
+// utility methods
 
-type mapMethod func(*mapValue, starlark.Tuple, []starlark.Tuple) (starlark.Value, error)
-
-var mapMethods = map[string]*starlark.Builtin{
-	"clear":      NewMapMethod("clear", _mapClear, 0),
-	"copy":       NewMapMethod("copy", _mapCopy, 0),
-	"fromkeys":   NewMapMethod("fromkeys", _mapFromkeys, 2),
-	"get":        NewMapMethod("get", _mapGet, 2),
-	"items":      NewMapMethod("items", _mapItems, 0),
-	"keys":       NewMapMethod("keys", _mapKeys, 0),
-	"pop":        NewMapMethod("pop", _mapPop, 2),
-	"popitem":    NewMapMethod("popitem", _mapPopitem, 0),
-	"setdefault": NewMapMethod("setdefault", _mapSetdefault, 2),
-	"update":     NewMapMethod("update", _mapUpdate, 1),
-	"values":     NewMapMethod("values", _mapValues, 0),
+func (v *mapValue) clear() {
+	nb := v.node.Prototype().NewBuilder()
+	v.node = nb.Build()
+	v.add = nil
+	v.replace = nil
 }
 
-func NewMapMethod(name string, meth mapMethod, numParam int) *starlark.Builtin {
+// starlark.HasAttrs : starlark.Map
+
+type mapMethod func(*mapValue, []starlark.Value) (starlark.Value, error)
+
+var mapMethods = map[string]*starlark.Builtin{
+	"clear":      NewMapMethod("clear", _mapClear, 0, 0),
+	"copy":       NewMapMethod("copy", _mapCopy, 0, 0),
+	"fromkeys":   NewMapMethod("fromkeys", _mapFromkeys, 1, 2),
+	"get":        NewMapMethod("get", _mapGet, 1, 2),
+	"items":      NewMapMethod("items", _mapItems, 0, 0),
+	"keys":       NewMapMethod("keys", _mapKeys, 0, 0),
+	"pop":        NewMapMethod("pop", _mapPop, 1, 2),
+	"popitem":    NewMapMethod("popitem", _mapPopitem, 0, 0),
+	"setdefault": NewMapMethod("setdefault", _mapSetdefault, 1, 2),
+	"update":     NewMapMethod("update", _mapUpdate, 1, 1),
+	"values":     NewMapMethod("values", _mapValues, 0, 0),
+}
+
+func NewMapMethod(name string, meth mapMethod, numNeed, numAllow int) *starlark.Builtin {
 	starlarkMethod := func(_ *starlark.Thread, b *starlark.Builtin, args starlark.Tuple, kwargs []starlark.Tuple) (starlark.Value, error) {
+		var first, second starlark.Value
+		err := starlark.UnpackArgs(b.Name(), args, nil, "first?", &first, "second?", &second)
+		if err != nil {
+			return nil, err
+		}
+		paramList := make([]starlark.Value, 0, 2)
+		if first != nil {
+			paramList = append(paramList, first)
+		}
+		if second != nil {
+			paramList = append(paramList, second)
+		}
+		if len(paramList) < numNeed {
+			return starlark.None, fmt.Errorf("need %d parameters, got %d", numNeed, len(paramList))
+		}
+		if len(paramList) > numAllow {
+			return starlark.None, fmt.Errorf("allows %d parameters, got %d", numAllow, len(paramList))
+		}
 		mv := b.Receiver().(*mapValue)
-		return meth(mv, args, kwargs)
+		return meth(mv, paramList)
 	}
 	return starlark.NewBuiltin(name, starlarkMethod)
 }
 
-func _mapClear(mv *mapValue, args starlark.Tuple, kwargs []starlark.Tuple) (starlark.Value, error) {
+func _mapClear(mv *mapValue, args []starlark.Value) (starlark.Value, error) {
+	mv.clear()
 	return starlark.None, nil
 }
 
-func _mapCopy(mv *mapValue, args starlark.Tuple, kwargs []starlark.Tuple) (starlark.Value, error) {
+func _mapCopy(mv *mapValue, args []starlark.Value) (starlark.Value, error) {
 	return starlark.None, nil
 }
 
-func _mapFromkeys(mv *mapValue, args starlark.Tuple, kwargs []starlark.Tuple) (starlark.Value, error) {
+func _mapFromkeys(mv *mapValue, args []starlark.Value) (starlark.Value, error) {
 	return starlark.None, nil
 }
 
-func _mapGet(mv *mapValue, args starlark.Tuple, kwargs []starlark.Tuple) (starlark.Value, error) {
+func _mapGet(mv *mapValue, args []starlark.Value) (starlark.Value, error) {
 	return starlark.None, nil
 }
 
@@ -135,7 +163,7 @@ func appendTwoItemListAsHost(hostList []starlark.Value, none ipldmodel.Node, ntw
 	return append(hostList, newHostList), nil
 }
 
-func _mapItems(mv *mapValue, args starlark.Tuple, kwargs []starlark.Tuple) (starlark.Value, error) {
+func _mapItems(mv *mapValue, args []starlark.Value) (starlark.Value, error) {
 	var hostItems []starlark.Value
 	var err error
 
@@ -175,7 +203,7 @@ func _mapItems(mv *mapValue, args starlark.Tuple, kwargs []starlark.Tuple) (star
 	return NewList(starlark.NewList(hostItems))
 }
 
-func _mapKeys(mv *mapValue, args starlark.Tuple, kwargs []starlark.Tuple) (starlark.Value, error) {
+func _mapKeys(mv *mapValue, args []starlark.Value) (starlark.Value, error) {
 	var hostItems []starlark.Value
 
 	nodeMapIter := mv.node.MapIterator()
@@ -196,23 +224,23 @@ func _mapKeys(mv *mapValue, args starlark.Tuple, kwargs []starlark.Tuple) (starl
 	return NewList(starlark.NewList(hostItems))
 }
 
-func _mapPop(mv *mapValue, args starlark.Tuple, kwargs []starlark.Tuple) (starlark.Value, error) {
+func _mapPop(mv *mapValue, args []starlark.Value) (starlark.Value, error) {
 	return starlark.None, nil
 }
 
-func _mapPopitem(mv *mapValue, args starlark.Tuple, kwargs []starlark.Tuple) (starlark.Value, error) {
+func _mapPopitem(mv *mapValue, args []starlark.Value) (starlark.Value, error) {
 	return starlark.None, nil
 }
 
-func _mapSetdefault(mv *mapValue, args starlark.Tuple, kwargs []starlark.Tuple) (starlark.Value, error) {
+func _mapSetdefault(mv *mapValue, args []starlark.Value) (starlark.Value, error) {
 	return starlark.None, nil
 }
 
-func _mapUpdate(mv *mapValue, args starlark.Tuple, kwargs []starlark.Tuple) (starlark.Value, error) {
+func _mapUpdate(mv *mapValue, args []starlark.Value) (starlark.Value, error) {
 	return starlark.None, nil
 }
 
-func _mapValues(mv *mapValue, args starlark.Tuple, kwargs []starlark.Tuple) (starlark.Value, error) {
+func _mapValues(mv *mapValue, args []starlark.Value) (starlark.Value, error) {
 	// all content should be datalark.Node, but using a starlark.Value interface
 	var hostItems []starlark.Value
 
