@@ -150,3 +150,17 @@ map{
 3
 `)
 }
+
+func TestMethodClear(t *testing.T) {
+	mustParseSchemaRunScriptAssertOutput(t,
+		`
+	`,
+		`mytypes`,
+		`
+m = datalark.Map(_={'a': 'apple', 'b': 'banana'})
+m.clear()
+print(m.values())
+`, `
+list{}
+`)
+}

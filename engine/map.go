@@ -87,6 +87,9 @@ func (v *mapValue) Len() int {
 
 func (v *mapValue) clear() {
 	nb := v.node.Prototype().NewBuilder()
+	ma, err := nb.BeginMap(0)
+	err = ma.Finish()
+	_ = err
 	v.node = nb.Build()
 	v.add = nil
 	v.replace = nil
@@ -142,25 +145,29 @@ func _mapClear(mv *mapValue, args []starlark.Value) (starlark.Value, error) {
 }
 
 func _mapCopy(mv *mapValue, args []starlark.Value) (starlark.Value, error) {
+	// TODO: implement
+	// TODO: test me
 	return starlark.None, nil
 }
 
 func _mapFromkeys(mv *mapValue, args []starlark.Value) (starlark.Value, error) {
+	// TODO: implement
+	// TODO: test me
 	return starlark.None, nil
 }
 
 func _mapGet(mv *mapValue, args []starlark.Value) (starlark.Value, error) {
-	return starlark.None, nil
-}
-
-func appendTwoItemListAsHost(hostList []starlark.Value, none ipldmodel.Node, ntwo ipldmodel.Node) ([]starlark.Value, error) {
-	h := nodeToHost(none)
-	g := nodeToHost(ntwo)
-	newHostList, err := NewList(starlark.NewList([]starlark.Value{h, g}))
-	if err != nil {
-		return nil, err
+	// TODO: test me
+	skey := args[0]
+	var sdefault starlark.Value
+	if len(args) > 1 {
+		sdefault = args[1]
 	}
-	return append(hostList, newHostList), nil
+	sval, found, err := mv.Get(skey)
+	if found {
+		return sval, err
+	}
+	return sdefault, nil
 }
 
 func _mapItems(mv *mapValue, args []starlark.Value) (starlark.Value, error) {
@@ -225,18 +232,26 @@ func _mapKeys(mv *mapValue, args []starlark.Value) (starlark.Value, error) {
 }
 
 func _mapPop(mv *mapValue, args []starlark.Value) (starlark.Value, error) {
+	// TODO: implement
+	// TODO: test me
 	return starlark.None, nil
 }
 
 func _mapPopitem(mv *mapValue, args []starlark.Value) (starlark.Value, error) {
+	// TODO: implement
+	// TODO: test me
 	return starlark.None, nil
 }
 
 func _mapSetdefault(mv *mapValue, args []starlark.Value) (starlark.Value, error) {
+	// TODO: implement
+	// TODO: test me
 	return starlark.None, nil
 }
 
 func _mapUpdate(mv *mapValue, args []starlark.Value) (starlark.Value, error) {
+	// TODO: implement
+	// TODO: test me
 	return starlark.None, nil
 }
 
@@ -385,4 +400,14 @@ func (v *mapValue) applyChangesToNode() error {
 	v.add = make(map[string]ipldmodel.Node)
 	v.replace = make(map[string]ipldmodel.Node)
 	return nil
+}
+
+func appendTwoItemListAsHost(hostList []starlark.Value, none ipldmodel.Node, ntwo ipldmodel.Node) ([]starlark.Value, error) {
+	h := nodeToHost(none)
+	g := nodeToHost(ntwo)
+	newHostList, err := NewList(starlark.NewList([]starlark.Value{h, g}))
+	if err != nil {
+		return nil, err
+	}
+	return append(hostList, newHostList), nil
 }
