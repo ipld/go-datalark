@@ -14,6 +14,7 @@ import (
 type mapValue struct {
 	node    ipldmodel.Node
 	add     map[string]ipldmodel.Node
+	del     map[string]bool
 	replace map[string]ipldmodel.Node
 }
 
@@ -60,17 +61,24 @@ func (v *mapValue) Hash() (uint32, error) {
 //   d['a'] # calls d.Get('a')
 //
 func (v *mapValue) Get(in starlark.Value) (out starlark.Value, found bool, err error) {
-	keyStr, ok := in.(starlark.String)
+	skey, ok := in.(starlark.String)
 	if !ok {
 		return starlark.None, false, fmt.Errorf("cannot index map using %v of type %T", in, in)
 	}
-	key := string(keyStr)
-	n, err := v.node.LookupByString(key)
+	gstrKey := string(skey)
+	// look in add, replace first
+	if nval, ok := v.add[gstrKey]; ok {
+		return nodeToHost(nval), true, nil
+	}
+	if nval, ok := v.replace[gstrKey]; ok {
+		return nodeToHost(nval), true, nil
+	}
+	// look in the ipld node
+	nval, err := v.node.LookupByString(gstrKey)
 	if err != nil {
 		return nil, false, err
 	}
-	val, err := ToValue(n)
-	return val, true, err
+	return nodeToHost(nval), true, err
 }
 
 // starlark.Sequence
@@ -80,7 +88,7 @@ func (v *mapValue) Iterate() starlark.Iterator {
 }
 
 func (v *mapValue) Len() int {
-	return int(v.node.Length()) + len(v.add)
+	return int(v.node.Length()) + len(v.add) - len(v.del)
 }
 
 // utility methods
@@ -157,17 +165,18 @@ func _mapFromkeys(mv *mapValue, args []starlark.Value) (starlark.Value, error) {
 }
 
 func _mapGet(mv *mapValue, args []starlark.Value) (starlark.Value, error) {
-	// TODO: test me
-	skey := args[0]
-	var sdefault starlark.Value
-	if len(args) > 1 {
-		sdefault = args[1]
+	var skey, sdefault starlark.Value
+	if err := starlark.UnpackPositionalArgs("get", args, nil, 1, &skey, &sdefault); err != nil {
+		return starlark.None, err
 	}
 	sval, found, err := mv.Get(skey)
 	if found {
 		return sval, err
 	}
-	return sdefault, nil
+	if sdefault != nil {
+		return starToHost(sdefault)
+	}
+	return starlark.None, nil
 }
 
 func _mapItems(mv *mapValue, args []starlark.Value) (starlark.Value, error) {
@@ -232,9 +241,24 @@ func _mapKeys(mv *mapValue, args []starlark.Value) (starlark.Value, error) {
 }
 
 func _mapPop(mv *mapValue, args []starlark.Value) (starlark.Value, error) {
-	// TODO: implement
-	// TODO: test me
-	return starlark.None, nil
+	var skey, sdefault starlark.Value
+	if err := starlark.UnpackPositionalArgs("pop", args, nil, 1, &skey, &sdefault); err != nil {
+		return starlark.None, err
+	}
+	sval, found, err := mv.Get(skey)
+	if found {
+		// remove the element
+		gstrKey := skey.String()
+		if mv.del == nil {
+			mv.del = make(map[string]ipldmodel.Node)
+		}
+		mv.del[gstrKey] = true
+		return sval, err
+	}
+	if sdefault != nil {
+		return starToHost(sdefault)
+	}
+	return starlark.None, fmt.Errorf("error, not found: %s", skey)
 }
 
 func _mapPopitem(mv *mapValue, args []starlark.Value) (starlark.Value, error) {
@@ -308,7 +332,7 @@ func (v *mapValue) AttrNames() []string {
 
 // SetKey assigns a value to a map at the given key
 func (v *mapValue) SetKey(nameVal, val starlark.Value) error {
-
+	// TODO: handle removal, added items should fix up the `del` map
 	dv, err := starToHost(val)
 	if err != nil {
 		return err
@@ -333,6 +357,8 @@ func (v *mapValue) SetKey(nameVal, val starlark.Value) error {
 }
 
 func (v *mapValue) applyChangesToNode() error {
+	// TODO: handle removal, test it
+
 	// if there are no changes, just return fast
 	if len(v.add) == 0 && len(v.replace) == 0 {
 		return nil

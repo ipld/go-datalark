@@ -38,6 +38,25 @@ func TestMapAndLookup(t *testing.T) {
 `)
 }
 
+func TestMapLookupWithMutation(t *testing.T) {
+	mustParseSchemaRunScriptAssertOutput(t,
+		`
+	`,
+		`mytypes`,
+		`
+m = datalark.Map(_={'a': 'apple', 'b': 'banana'})
+m['a'] = 'apricot'
+m['c'] = 'cherry'
+print(m.get('a'))
+print(m.get('b'))
+print(m.get('c'))
+`, `
+string{"apricot"}
+string{"banana"}
+string{"cherry"}
+`)
+}
+
 func TestMethodItems(t *testing.T) {
 	mustParseSchemaRunScriptAssertOutput(t,
 		`
@@ -162,5 +181,44 @@ m.clear()
 print(m.values())
 `, `
 list{}
+`)
+}
+
+func TestMethodGet(t *testing.T) {
+	mustParseSchemaRunScriptAssertOutput(t,
+		`
+	`,
+		`mytypes`,
+		`
+m = datalark.Map(_={'a': 'apple', 'b': 'banana'})
+print(m.get('a'))
+print(m.get('a', 'apricot'))
+print(m.get('c'))
+print(m.get('c', 'cherry'))
+`, `
+string{"apple"}
+string{"apple"}
+None
+string{"cherry"}
+`)
+
+	mustParseSchemaRunScriptAssertOutput(t,
+		`
+	`,
+		`mytypes`,
+		`
+m = datalark.Map(_={'a': 'apple', 'b': 'banana', 'c': 'cherry'})
+m['a'] = 'apricot'
+m.pop('c')
+m['d'] = 'date'
+print(m.get('a'))
+print(m.get('b'))
+print(m.get('c'))
+print(m.get('d'))
+`, `
+string{"apricot"}
+string{"banana"}
+None
+string{"date"}
 `)
 }
