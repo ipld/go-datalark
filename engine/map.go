@@ -14,7 +14,7 @@ import (
 type mapValue struct {
 	node    ipldmodel.Node
 	add     map[string]ipldmodel.Node
-	del     map[string]bool
+	del     map[string]struct{}
 	replace map[string]ipldmodel.Node
 }
 
@@ -29,7 +29,7 @@ var (
 )
 
 func newMapValue(node ipldmodel.Node) Value {
-	return &mapValue{node, nil, nil}
+	return &mapValue{node, nil, nil, nil}
 }
 
 func (v *mapValue) Node() ipldmodel.Node {
@@ -66,6 +66,12 @@ func (v *mapValue) Get(in starlark.Value) (out starlark.Value, found bool, err e
 		return starlark.None, false, fmt.Errorf("cannot index map using %v of type %T", in, in)
 	}
 	gstrKey := string(skey)
+
+	// if key has been deleted, return nil early
+	if _, ok := v.del[gstrKey]; ok {
+		return nil, false, nil
+	}
+
 	// look in add, replace first
 	if nval, ok := v.add[gstrKey]; ok {
 		return nodeToHost(nval), true, nil
@@ -101,6 +107,7 @@ func (v *mapValue) clear() {
 	v.node = nb.Build()
 	v.add = nil
 	v.replace = nil
+	v.del = nil
 }
 
 // starlark.HasAttrs : starlark.Map
@@ -169,10 +176,12 @@ func _mapGet(mv *mapValue, args []starlark.Value) (starlark.Value, error) {
 	if err := starlark.UnpackPositionalArgs("get", args, nil, 1, &skey, &sdefault); err != nil {
 		return starlark.None, err
 	}
+	// lookup value, method Get handles add,replace,del
 	sval, found, err := mv.Get(skey)
 	if found {
 		return sval, err
 	}
+	// if not found, return the default param if one is given
 	if sdefault != nil {
 		return starToHost(sdefault)
 	}
@@ -195,6 +204,11 @@ func _mapItems(mv *mapValue, args []starlark.Value) (starlark.Value, error) {
 			return starlark.None, err
 		}
 
+		if _, ok := mv.del[gstrKey]; ok {
+			// TODO: test me
+			// deleted
+			continue
+		}
 		if nodeReplace, ok := mv.replace[gstrKey]; ok {
 			hostItems, err = appendTwoItemListAsHost(hostItems, nkey, nodeReplace)
 			if err != nil {
@@ -228,6 +242,15 @@ func _mapKeys(mv *mapValue, args []starlark.Value) (starlark.Value, error) {
 		if err != nil {
 			return starlark.None, err
 		}
+		gstrKey, err := nkey.AsString()
+		if err != nil {
+			return starlark.None, err
+		}
+		if _, ok := mv.del[gstrKey]; ok {
+			// TODO: test me
+			// deleted
+			continue
+		}
 		hostItems = append(hostItems, nodeToHost(nkey))
 	}
 
@@ -241,18 +264,19 @@ func _mapKeys(mv *mapValue, args []starlark.Value) (starlark.Value, error) {
 }
 
 func _mapPop(mv *mapValue, args []starlark.Value) (starlark.Value, error) {
-	var skey, sdefault starlark.Value
+	var skey starlark.String
+	var sdefault starlark.Value
 	if err := starlark.UnpackPositionalArgs("pop", args, nil, 1, &skey, &sdefault); err != nil {
 		return starlark.None, err
 	}
 	sval, found, err := mv.Get(skey)
 	if found {
 		// remove the element
-		gstrKey := skey.String()
+		gstrKey := string(skey)
 		if mv.del == nil {
-			mv.del = make(map[string]ipldmodel.Node)
+			mv.del = make(map[string]struct{})
 		}
-		mv.del[gstrKey] = true
+		mv.del[gstrKey] = struct{}{}
 		return sval, err
 	}
 	if sdefault != nil {
@@ -295,6 +319,11 @@ func _mapValues(mv *mapValue, args []starlark.Value) (starlark.Value, error) {
 			return starlark.None, err
 		}
 
+		if _, ok := mv.del[gstrKey]; ok {
+			// TODO: test me
+			// deleted
+			continue
+		}
 		// if the value has been replaced, use the replacement
 		if nodeReplace, ok := mv.replace[gstrKey]; ok {
 			hostItems = append(hostItems, nodeToHost(nodeReplace))
@@ -357,10 +386,8 @@ func (v *mapValue) SetKey(nameVal, val starlark.Value) error {
 }
 
 func (v *mapValue) applyChangesToNode() error {
-	// TODO: handle removal, test it
-
 	// if there are no changes, just return fast
-	if len(v.add) == 0 && len(v.replace) == 0 {
+	if len(v.add) == 0 && len(v.replace) == 0 && len(v.del) == 0 {
 		return nil
 	}
 
@@ -373,34 +400,39 @@ func (v *mapValue) applyChangesToNode() error {
 	}
 
 	// iterate the contents of the previous map node
-	miter := v.node.MapIterator()
-	for !miter.Done() {
+	nodeMapIter := v.node.MapIterator()
+	for !nodeMapIter.Done() {
 		// get the key and convert to a string
-		key, val, err := miter.Next()
+		nkey, nval, err := nodeMapIter.Next()
 		if err != nil {
 			return err
 		}
-		keystr, err := key.AsString()
+		gstrKey, err := nkey.AsString()
 		if err != nil {
 			return err
 		}
 
+		// if this key has been deleted, skip it
+		if _, ok := v.del[gstrKey]; ok {
+			continue
+		}
+
 		// assign the string key to the new builder
 		na := ma.AssembleKey()
-		if err = na.AssignString(keystr); err != nil {
+		if err = na.AssignString(gstrKey); err != nil {
 			return err
 		}
-		if repl, ok := v.replace[keystr]; ok {
+		if nodeReplace, ok := v.replace[gstrKey]; ok {
 			// if this key was replaced, use the replacement value
 			na = ma.AssembleValue()
-			if err = na.AssignNode(repl); err != nil {
+			if err = na.AssignNode(nodeReplace); err != nil {
 				return err
 			}
 			continue
 		}
 		// otherwise copy the original value
 		na = ma.AssembleValue()
-		if err = na.AssignNode(val); err != nil {
+		if err = na.AssignNode(nval); err != nil {
 			return err
 		}
 	}
@@ -423,8 +455,9 @@ func (v *mapValue) applyChangesToNode() error {
 		return err
 	}
 	v.node = nb.Build()
-	v.add = make(map[string]ipldmodel.Node)
-	v.replace = make(map[string]ipldmodel.Node)
+	v.add = nil
+	v.replace = nil
+	v.del = nil
 	return nil
 }
 
