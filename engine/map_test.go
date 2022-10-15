@@ -125,8 +125,8 @@ map{
 string{"berry"}
 map{
 	string{"a"}: string{"apple"}
-	string{"c"}: string{"cherry"}
 	string{"b"}: string{"berry"}
+	string{"c"}: string{"cherry"}
 }
 `)
 
@@ -168,7 +168,7 @@ map{
 		`
 m = datalark.Map(_={'a': 'apple', 'b': 'banana', 'c': 'cherry'})
 m['d'] = 'durian'
-print(m.get('c'))
+print(m.get('d'))
 print(m)
 
 n = datalark.Map(_={'a': 'apple', 'b': 'banana', 'c': 'cherry'})
@@ -177,7 +177,19 @@ n.pop('d')
 print(n.get('d'))
 print(n)
 `, `
-TODO
+string{"durian"}
+map{
+	string{"a"}: string{"apple"}
+	string{"b"}: string{"banana"}
+	string{"c"}: string{"cherry"}
+	string{"d"}: string{"durian"}
+}
+None
+map{
+	string{"a"}: string{"apple"}
+	string{"b"}: string{"banana"}
+	string{"c"}: string{"cherry"}
+}
 `)
 
 }
@@ -200,6 +212,10 @@ list{
 	1: list{
 		0: string{"b"}
 		1: string{"banana"}
+	}
+	2: list{
+		0: string{"c"}
+		1: string{"cherry"}
 	}
 }
 `)
@@ -315,7 +331,6 @@ list{
 	0: string{"a"}
 	1: string{"b"}
 	2: string{"c"}
-	3: string{"d"}
 }
 `)
 
@@ -330,8 +345,10 @@ m['d'] = 'durian'
 print(m.keys())
 `, `
 list{
-	0: string{"b"}
-	1: string{"c"}
+	0: string{"a"}
+	1: string{"b"}
+	2: string{"c"}
+	3: string{"d"}
 }
 `)
 
@@ -363,9 +380,9 @@ m = datalark.Map(_={'a': 'apple', 'b': 'banana', 'c': 'cherry'})
 print(m.values())
 `, `
 list{
-	0: string{"a"}
-	1: string{"b"}
-	2: string{"c"}
+	0: string{"apple"}
+	1: string{"banana"}
+	2: string{"cherry"}
 }
 `)
 
@@ -380,10 +397,9 @@ m['b'] = 'berry'
 print(m.values())
 `, `
 list{
-	0: string{"a"}
-	1: string{"b"}
-	2: string{"c"}
-	3: string{"d"}
+	0: string{"apple"}
+	1: string{"berry"}
+	2: string{"cherry"}
 }
 `)
 
@@ -398,8 +414,10 @@ m['d'] = 'durian'
 print(m.values())
 `, `
 list{
-	0: string{"b"}
-	1: string{"c"}
+	0: string{"apple"}
+	1: string{"banana"}
+	2: string{"cherry"}
+	3: string{"durian"}
 }
 `)
 
@@ -414,8 +432,8 @@ m.pop('a')
 print(m.values())
 `, `
 list{
-	0: string{"b"}
-	1: string{"c"}
+	0: string{"banana"}
+	1: string{"cherry"}
 }
 `)
 }

@@ -65,22 +65,22 @@ func (v *mapValue) Get(in starlark.Value) (out starlark.Value, found bool, err e
 	if !ok {
 		return starlark.None, false, fmt.Errorf("cannot index map using %v of type %T", in, in)
 	}
-	gstrKey := string(skey)
+	name := string(skey)
 
 	// if key has been deleted, return nil early
-	if _, ok := v.del[gstrKey]; ok {
+	if _, ok := v.del[name]; ok {
 		return nil, false, nil
 	}
 
 	// look in add, replace first
-	if nval, ok := v.add[gstrKey]; ok {
+	if nval, ok := v.add[name]; ok {
 		return nodeToHost(nval), true, nil
 	}
-	if nval, ok := v.replace[gstrKey]; ok {
+	if nval, ok := v.replace[name]; ok {
 		return nodeToHost(nval), true, nil
 	}
 	// look in the ipld node
-	nval, err := v.node.LookupByString(gstrKey)
+	nval, err := v.node.LookupByString(name)
 	if err != nil {
 		return nil, false, err
 	}
@@ -199,17 +199,15 @@ func _mapItems(mv *mapValue, args []starlark.Value) (starlark.Value, error) {
 		if err != nil {
 			return starlark.None, err
 		}
-		gstrKey, err := nkey.AsString()
+		name, err := nkey.AsString()
 		if err != nil {
 			return starlark.None, err
 		}
 
-		if _, ok := mv.del[gstrKey]; ok {
-			// TODO: test me
-			// deleted
+		if _, ok := mv.del[name]; ok {
 			continue
 		}
-		if nodeReplace, ok := mv.replace[gstrKey]; ok {
+		if nodeReplace, ok := mv.replace[name]; ok {
 			hostItems, err = appendTwoItemListAsHost(hostItems, nkey, nodeReplace)
 			if err != nil {
 				return starlark.None, err
@@ -223,8 +221,8 @@ func _mapItems(mv *mapValue, args []starlark.Value) (starlark.Value, error) {
 	}
 
 	// add new keys and values to the new builder
-	for gstrKey, nval := range mv.add {
-		hostItems, err = appendTwoItemListAsHost(hostItems, basicnode.NewString(gstrKey), nval)
+	for name, nval := range mv.add {
+		hostItems, err = appendTwoItemListAsHost(hostItems, basicnode.NewString(name), nval)
 		if err != nil {
 			return starlark.None, err
 		}
@@ -242,21 +240,19 @@ func _mapKeys(mv *mapValue, args []starlark.Value) (starlark.Value, error) {
 		if err != nil {
 			return starlark.None, err
 		}
-		gstrKey, err := nkey.AsString()
+		name, err := nkey.AsString()
 		if err != nil {
 			return starlark.None, err
 		}
-		if _, ok := mv.del[gstrKey]; ok {
-			// TODO: test me
-			// deleted
+		if _, ok := mv.del[name]; ok {
 			continue
 		}
 		hostItems = append(hostItems, nodeToHost(nkey))
 	}
 
 	// add new keys and values to the new builder
-	for gstrKey := range mv.add {
-		hostItems = append(hostItems, nodeToHost(basicnode.NewString(gstrKey)))
+	for name := range mv.add {
+		hostItems = append(hostItems, nodeToHost(basicnode.NewString(name)))
 	}
 
 	// return as a datalark.Value(*datalark.List) with starlark.Value interface
@@ -269,14 +265,44 @@ func _mapPop(mv *mapValue, args []starlark.Value) (starlark.Value, error) {
 	if err := starlark.UnpackPositionalArgs("pop", args, nil, 1, &skey, &sdefault); err != nil {
 		return starlark.None, err
 	}
+	name := string(skey)
+
+	if mv.add != nil {
+		if node, ok := mv.add[name]; ok {
+			// test me
+			delete(mv.add, name)
+			return nodeToHost(node), nil
+		}
+	}
+	if mv.replace != nil {
+		if node, ok := mv.replace[name]; ok {
+			// test me
+			delete(mv.replace, name)
+			if mv.del == nil {
+				mv.del = make(map[string]struct{})
+			}
+			mv.del[name] = struct{}{}
+			return nodeToHost(node), nil
+		}
+	}
+	if mv.del != nil {
+		if _, ok := mv.del[name]; ok {
+			// test me
+			if sdefault != nil {
+				return starToHost(sdefault)
+			}
+			return starlark.None, fmt.Errorf("error, not found: %s", skey)
+		}
+	}
+
 	sval, found, err := mv.Get(skey)
 	if found {
 		// remove the element
-		gstrKey := string(skey)
+		name := string(skey)
 		if mv.del == nil {
 			mv.del = make(map[string]struct{})
 		}
-		mv.del[gstrKey] = struct{}{}
+		mv.del[name] = struct{}{}
 		return sval, err
 	}
 	if sdefault != nil {
@@ -314,18 +340,17 @@ func _mapValues(mv *mapValue, args []starlark.Value) (starlark.Value, error) {
 		if err != nil {
 			return starlark.None, err
 		}
-		gstrKey, err := nkey.AsString()
+		name, err := nkey.AsString()
 		if err != nil {
 			return starlark.None, err
 		}
 
-		if _, ok := mv.del[gstrKey]; ok {
-			// TODO: test me
-			// deleted
+		// if the value has been deleted, skip it
+		if _, ok := mv.del[name]; ok {
 			continue
 		}
 		// if the value has been replaced, use the replacement
-		if nodeReplace, ok := mv.replace[gstrKey]; ok {
+		if nodeReplace, ok := mv.replace[name]; ok {
 			hostItems = append(hostItems, nodeToHost(nodeReplace))
 			continue
 		}
@@ -360,16 +385,34 @@ func (v *mapValue) AttrNames() []string {
 // starlark.HasSetKey
 
 // SetKey assigns a value to a map at the given key
-func (v *mapValue) SetKey(nameVal, val starlark.Value) error {
-	// TODO: handle removal, added items should fix up the `del` map
-	dv, err := starToHost(val)
+func (v *mapValue) SetKey(starName, starVal starlark.Value) error {
+	hval, err := starToHost(starVal)
 	if err != nil {
 		return err
 	}
-	node := dv.Node()
+	node := hval.Node()
 
 	var name string
-	name, _ = starlark.AsString(nameVal)
+	name, _ = starlark.AsString(starName)
+
+	if v.add != nil {
+		if _, ok := v.add[name]; ok {
+			v.add[name] = node
+			return nil
+		}
+	}
+	if v.replace != nil {
+		if _, ok := v.replace[name]; ok {
+			v.replace[name] = node
+			return nil
+		}
+	}
+	if v.del != nil {
+		if _, ok := v.del[name]; ok {
+			delete(v.del, name)
+		}
+	}
+
 	exist, _ := v.node.LookupByString(name)
 	if exist == nil {
 		if v.add == nil {
@@ -407,22 +450,22 @@ func (v *mapValue) applyChangesToNode() error {
 		if err != nil {
 			return err
 		}
-		gstrKey, err := nkey.AsString()
+		name, err := nkey.AsString()
 		if err != nil {
 			return err
 		}
 
 		// if this key has been deleted, skip it
-		if _, ok := v.del[gstrKey]; ok {
+		if _, ok := v.del[name]; ok {
 			continue
 		}
 
 		// assign the string key to the new builder
 		na := ma.AssembleKey()
-		if err = na.AssignString(gstrKey); err != nil {
+		if err = na.AssignString(name); err != nil {
 			return err
 		}
-		if nodeReplace, ok := v.replace[gstrKey]; ok {
+		if nodeReplace, ok := v.replace[name]; ok {
 			// if this key was replaced, use the replacement value
 			na = ma.AssembleValue()
 			if err = na.AssignNode(nodeReplace); err != nil {
@@ -438,9 +481,9 @@ func (v *mapValue) applyChangesToNode() error {
 	}
 
 	// add new keys and values to the new builder
-	for gstrKey, nodeAdd := range v.add {
+	for name, nodeAdd := range v.add {
 		na := ma.AssembleKey()
-		if err = na.AssignString(gstrKey); err != nil {
+		if err = na.AssignString(name); err != nil {
 			return nil
 		}
 		na = ma.AssembleValue()
