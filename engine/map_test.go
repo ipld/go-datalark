@@ -523,3 +523,48 @@ None
 string{"date"}
 `)
 }
+
+func TestMethodSetdefault(t *testing.T) {
+	mustParseSchemaRunScriptAssertOutput(t,
+		`
+	`,
+		`mytypes`,
+		`
+m = datalark.Map(_={'a': 'apple', 'b': 'banana', 'c': 'cherry'})
+m['b'] = 'berry'
+m.pop('c')
+print(m.setdefault('a'))
+print(m.setdefault('a', 'apricot'))
+print(m.setdefault('b'))
+print(m.setdefault('c', 'cantaloupe'))
+print(m.setdefault('d', 'durian'))
+print(m.setdefault('d'))
+print(m.setdefault('e'))
+print(m.setdefault('e', 'elderberry'))
+m['f'] = 'fig'
+m['g'] = 'grape'
+print(m.setdefault('f'))
+print(m.setdefault('g', 'guava'))
+print(m)
+`, `
+string{"apple"}
+string{"apple"}
+string{"berry"}
+string{"cantaloupe"}
+string{"durian"}
+string{"durian"}
+null
+null
+string{"fig"}
+string{"grape"}
+map{
+	string{"a"}: string{"apple"}
+	string{"b"}: string{"berry"}
+	string{"c"}: string{"cantaloupe"}
+	string{"d"}: string{"durian"}
+	string{"e"}: null
+	string{"f"}: string{"fig"}
+	string{"g"}: string{"grape"}
+}
+`)
+}

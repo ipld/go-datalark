@@ -318,9 +318,27 @@ func _mapPopitem(mv *mapValue, args []starlark.Value) (starlark.Value, error) {
 }
 
 func _mapSetdefault(mv *mapValue, args []starlark.Value) (starlark.Value, error) {
-	// TODO: implement
-	// TODO: test me
-	return starlark.None, nil
+	var skey starlark.String
+	var svalue starlark.Value
+	if err := starlark.UnpackPositionalArgs("setdefault", args, nil, 1, &skey, &svalue); err != nil {
+		return starlark.None, err
+	}
+
+	// if value exists, return it
+	sval, found, err := mv.Get(skey)
+	if found {
+		return starToHost(sval)
+	}
+	if svalue == nil {
+		svalue = starlark.None
+	}
+	// insert the default value
+	err = mv.SetKey(skey, svalue)
+	if err != nil {
+		return starlark.None, err
+	}
+	// return it
+	return starToHost(svalue)
 }
 
 func _mapUpdate(mv *mapValue, args []starlark.Value) (starlark.Value, error) {

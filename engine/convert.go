@@ -41,7 +41,7 @@ func ToValue(n datamodel.Node) (Value, error) {
 	case datamodel.Kind_List:
 		return newListValue(n), nil
 	case datamodel.Kind_Null:
-		panic("IMPLEMENT ME!")
+		return newBasicValue(n, datamodel.Kind_Null), nil
 	case datamodel.Kind_Bool:
 		return newBasicValue(n, datamodel.Kind_Bool), nil
 	case datamodel.Kind_Int:
@@ -150,6 +150,9 @@ func assembleFrom(na datamodel.NodeAssembler, starVal starlark.Value) error {
 // convert a generic starlark.Value into a datalark.Value
 func starToHost(val starlark.Value) (Value, error) {
 	switch it := val.(type) {
+	case Value:
+		// already a datalark.Value, just return it
+		return it, nil
 	case starlark.NoneType:
 		return NewNull(), nil
 	case starlark.Bool:
