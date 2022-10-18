@@ -342,8 +342,26 @@ func _mapSetdefault(mv *mapValue, args []starlark.Value) (starlark.Value, error)
 }
 
 func _mapUpdate(mv *mapValue, args []starlark.Value) (starlark.Value, error) {
-	// TODO: implement
-	// TODO: test me
+	starObj, ok := args[0].(starlark.IterableMapping)
+	if !ok {
+		return nil, fmt.Errorf("map.update requires an iterable mapping")
+	}
+
+	starIter := starObj.Iterate()
+	defer starIter.Done()
+
+	var skey starlark.Value
+	for starIter.Next(&skey) {
+		sval, _, err := starObj.Get(skey)
+		if err != nil {
+			return nil, err
+		}
+		err = mv.SetKey(skey, sval)
+		if err != nil {
+			return nil, err
+		}
+	}
+
 	return starlark.None, nil
 }
 

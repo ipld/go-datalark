@@ -109,12 +109,12 @@ func assembleFrom(na datamodel.NodeAssembler, starVal starlark.Value) error {
 		}
 		starIter := starObj.Iterate()
 		defer starIter.Done()
-		var sval starlark.Value
-		for starIter.Next(&sval) {
-			if err := assembleFrom(ma.AssembleKey(), sval); err != nil {
+		var skey starlark.Value
+		for starIter.Next(&skey) {
+			if err := assembleFrom(ma.AssembleKey(), skey); err != nil {
 				return err
 			}
-			sval, _, err := starObj.Get(sval)
+			sval, _, err := starObj.Get(skey)
 			if err != nil {
 				return err
 			}
