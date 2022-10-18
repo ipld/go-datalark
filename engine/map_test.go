@@ -587,3 +587,23 @@ map{
 }
 `)
 }
+
+func TestMethodCopy(t *testing.T) {
+	mustParseSchemaRunScriptAssertOutput(t,
+		`
+	`,
+		`mytypes`,
+		`
+m = datalark.Map(_={'a': 'apple', 'b': 'banana', 'c': 'cherry'})
+m['b'] = 'berry'
+n = m.copy()
+m['c'] = 'cantaloupe'
+print(n)
+`, `
+map{
+	string{"a"}: string{"apple"}
+	string{"b"}: string{"berry"}
+	string{"c"}: string{"cherry"}
+}
+`)
+}

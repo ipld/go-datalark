@@ -160,9 +160,27 @@ func _mapClear(mv *mapValue, args []starlark.Value) (starlark.Value, error) {
 }
 
 func _mapCopy(mv *mapValue, args []starlark.Value) (starlark.Value, error) {
-	// TODO: implement
-	// TODO: test me
-	return starlark.None, nil
+	build := &mapValue{}
+	build.node = mv.node
+	if mv.add != nil {
+		build.add = make(map[string]ipldmodel.Node, len(mv.add))
+		for name, nval := range mv.add {
+			build.add[name] = nval
+		}
+	}
+	if mv.replace != nil {
+		build.replace = make(map[string]ipldmodel.Node, len(mv.replace))
+		for name, nval := range mv.replace {
+			build.replace[name] = nval
+		}
+	}
+	if mv.del != nil {
+		build.del = make(map[string]struct{}, len(mv.del))
+		for name := range mv.del {
+			build.del[name] = struct{}{}
+		}
+	}
+	return build, nil
 }
 
 func _mapFromkeys(mv *mapValue, args []starlark.Value) (starlark.Value, error) {
