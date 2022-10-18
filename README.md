@@ -54,6 +54,24 @@ The best way to increase the stability and completeness of datalark is to start 
 We're adding features as the demand for them is found.
 
 
+Naming Convention
+-----------------
+
+Variables used in the engine of datalark occasionally use prefixes, for example names such as "skey" and "starVal" and "hostItem". The prefixes in total are "host", "star", "node", and the single letter prefixes "h", "s", "n" and "g", "t", "m" respectively.
+
+While we normally avoid things like [Hungarian Notion](https://www.joelonsoftware.com/2005/05/11/making-wrong-code-look-wrong/) and just let the type system do its job, the prefixes in use here are doing something different. Since datalark exists as a middle layer between two type systems (ipl and starlark), we end up with lots of different kinds of objects that all represent the same abstract data. For example, a string could be a "datalark.String", or a "starlark.String", or a "ipld.datamodel.Node" of type "string", or a native go-lang "string". Often these types all appear at once in the same function, and this is not something a type system alone does not do a good job of differentiating. Trying to use only unprefixed names will lead to either confusing or inconsistent code across functions, and code that is much more difficult to read.
+
+The variable name prefixes in use:
+
+```
+prefix      type system           examples
+
+h/g/host    datalark              hval, hostVal
+s/t/star    starlark              skey, starObj
+n/m/node    ipld.datamodel.Node   nodeMapIter
+(plain)     go-lang native value  name, err
+```
+
 Contributing
 ------------
 
