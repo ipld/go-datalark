@@ -647,3 +647,54 @@ map{
 }
 `)
 }
+
+func TestMethodPopitem(t *testing.T) {
+	mustParseSchemaRunScriptAssertOutput(t,
+		`
+	`,
+		`mytypes`,
+		`
+m = datalark.Map(_={'a': 'apple', 'b': 'banana', 'c': 'cherry'})
+m.popitem()
+print(m)
+`, `
+map{
+	string{"a"}: string{"apple"}
+	string{"b"}: string{"banana"}
+}
+`)
+
+	mustParseSchemaRunScriptAssertOutput(t,
+		`
+	`,
+		`mytypes`,
+		`
+m = datalark.Map(_={'a': 'apple', 'b': 'banana', 'c': 'cherry'})
+m['d'] = 'durian'
+m.popitem()
+print(m)
+`, `
+map{
+	string{"a"}: string{"apple"}
+	string{"b"}: string{"banana"}
+	string{"c"}: string{"cherry"}
+}
+`)
+
+	mustParseSchemaRunScriptAssertOutput(t,
+		`
+	`,
+		`mytypes`,
+		`
+m = datalark.Map(_={'a': 'apple', 'c': 'cherry'})
+m['b'] = 'banana'
+m.popitem()
+print(m)
+`, `
+map{
+	string{"a"}: string{"apple"}
+	string{"c"}: string{"cherry"}
+}
+`)
+
+}

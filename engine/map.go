@@ -112,6 +112,74 @@ func (v *mapValue) clear() {
 	v.del = nil
 }
 
+func (v *mapValue) removeKey(skey starlark.String) starlark.Value {
+	name := string(skey)
+
+	if v.add != nil {
+		if node, ok := v.add[name]; ok {
+			// if key had been added, remove from the add map
+			delete(v.add, name)
+			v.addNames = removeFromSlice(v.addNames, name)
+			return nodeToHost(node)
+		}
+	}
+	if v.replace != nil {
+		if node, ok := v.replace[name]; ok {
+			// if key had been replaced, remove from the replace map, and add to delete
+			delete(v.replace, name)
+			if v.del == nil {
+				v.del = make(map[string]struct{})
+			}
+			v.del[name] = struct{}{}
+			return nodeToHost(node)
+		}
+	}
+	if v.del != nil {
+		if _, ok := v.del[name]; ok {
+			// if key had been deleted, do nothing, just return
+			return nil
+		}
+	}
+
+	sval, found, _ := v.Get(skey)
+	if found {
+		// remove the key by marking it as deleted
+		name := string(skey)
+		if v.del == nil {
+			v.del = make(map[string]struct{})
+		}
+		v.del[name] = struct{}{}
+		return sval
+	}
+
+	// key not found, return nil and let caller handle it
+	return nil
+}
+
+func (v *mapValue) lastInsertedKey() (string, bool) {
+	if len(v.addNames) > 0 {
+		return v.addNames[len(v.addNames)-1], true
+	}
+
+	hasKey := false
+	lastKey := ""
+	nodeMapIter := v.node.MapIterator()
+	for !nodeMapIter.Done() {
+		nkey, _, err := nodeMapIter.Next()
+		if err != nil {
+			continue
+		}
+		name, err := nkey.AsString()
+		if err != nil {
+			continue
+		}
+		lastKey = name
+		hasKey = true
+	}
+
+	return lastKey, hasKey
+}
+
 // starlark.HasAttrs : starlark.Map
 
 type mapMethod func(*mapValue, []starlark.Value) (starlark.Value, error)
@@ -336,57 +404,22 @@ func _mapPop(mv *mapValue, args []starlark.Value) (starlark.Value, error) {
 	if err := starlark.UnpackPositionalArgs("pop", args, nil, 1, &skey, &sdefault); err != nil {
 		return starlark.None, err
 	}
-	name := string(skey)
-
-	if mv.add != nil {
-		if node, ok := mv.add[name]; ok {
-			// test me
-			delete(mv.add, name)
-			mv.addNames = removeFromSlice(mv.addNames, name)
-			return nodeToHost(node), nil
-		}
-	}
-	if mv.replace != nil {
-		if node, ok := mv.replace[name]; ok {
-			// test me
-			delete(mv.replace, name)
-			if mv.del == nil {
-				mv.del = make(map[string]struct{})
-			}
-			mv.del[name] = struct{}{}
-			return nodeToHost(node), nil
-		}
-	}
-	if mv.del != nil {
-		if _, ok := mv.del[name]; ok {
-			// test me
-			if sdefault != nil {
-				return starToHost(sdefault)
-			}
-			return starlark.None, fmt.Errorf("error, not found: %s", skey)
-		}
-	}
-
-	sval, found, err := mv.Get(skey)
-	if found {
-		// remove the element
-		name := string(skey)
-		if mv.del == nil {
-			mv.del = make(map[string]struct{})
-		}
-		mv.del[name] = struct{}{}
-		return sval, err
+	sval := mv.removeKey(skey)
+	if sval != nil {
+		return sval, nil
 	}
 	if sdefault != nil {
-		return starToHost(sdefault)
+		return sdefault, nil
 	}
-	return starlark.None, fmt.Errorf("error, not found: %s", skey)
+	return nil, fmt.Errorf("error, not found: %s", skey)
 }
 
 func _mapPopitem(mv *mapValue, args []starlark.Value) (starlark.Value, error) {
-	// TODO: implement
-	// TODO: test me
-	return starlark.None, nil
+	name, hasKey := mv.lastInsertedKey()
+	if !hasKey {
+		return starlark.None, fmt.Errorf("error, not found: %s", name)
+	}
+	return mv.removeKey(starlark.String(name)), nil
 }
 
 func _mapSetdefault(mv *mapValue, args []starlark.Value) (starlark.Value, error) {
