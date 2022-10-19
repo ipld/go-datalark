@@ -188,9 +188,57 @@ func _mapCopy(mv *mapValue, args []starlark.Value) (starlark.Value, error) {
 }
 
 func _mapFromkeys(mv *mapValue, args []starlark.Value) (starlark.Value, error) {
-	// TODO: implement
-	// TODO: test me
-	return starlark.None, nil
+	var skeys, svalue starlark.Value
+	if err := starlark.UnpackPositionalArgs("fromkeys", args, nil, 1, &skeys, &svalue); err != nil {
+		return starlark.None, err
+	}
+
+	starKeys, ok := skeys.(starlark.Iterable)
+	if !ok {
+		return nil, fmt.Errorf("map.update requires an iterable")
+	}
+
+	// get the default value as a datalark kind
+	if svalue == nil {
+		svalue = starlark.None
+	}
+	hostVal, err := starToHost(svalue)
+	if err != nil {
+		return nil, err
+	}
+
+	// start building a new map node
+	nb := mv.node.Prototype().NewBuilder()
+	ma, err := nb.BeginMap(0)
+	if err != nil {
+		return nil, err
+	}
+
+	// iterate the list of keys
+	starIter := starKeys.Iterate()
+	defer starIter.Done()
+
+	var skey starlark.Value
+	for starIter.Next(&skey) {
+		key, ok := starlark.AsString(skey)
+		if !ok {
+			return nil, fmt.Errorf("could not convert key to string: %v", skey)
+		}
+		// construct each key value pair in the new map
+		na := ma.AssembleKey()
+		if err = na.AssignString(key); err != nil {
+			return nil, err
+		}
+		na = ma.AssembleValue()
+		if err = na.AssignNode(hostVal.Node()); err != nil {
+			return nil, err
+		}
+	}
+	err = ma.Finish()
+	if err != nil {
+		return nil, err
+	}
+	return newMapValue(nb.Build()), nil
 }
 
 func _mapGet(mv *mapValue, args []starlark.Value) (starlark.Value, error) {

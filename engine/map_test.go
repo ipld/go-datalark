@@ -629,3 +629,21 @@ map{
 }
 `)
 }
+
+func TestMethodFromKeys(t *testing.T) {
+	mustParseSchemaRunScriptAssertOutput(t,
+		`
+	`,
+		`mytypes`,
+		`
+m = datalark.Map(_={'a': 'apple'})
+n = m.fromkeys(['b', 'c', 'd'], 'fruit')
+print(n)
+`, `
+map{
+	string{"b"}: string{"fruit"}
+	string{"c"}: string{"fruit"}
+	string{"d"}: string{"fruit"}
+}
+`)
+}
