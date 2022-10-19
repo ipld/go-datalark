@@ -12,10 +12,11 @@ import (
 )
 
 type mapValue struct {
-	node    ipldmodel.Node
-	add     map[string]ipldmodel.Node
-	del     map[string]struct{}
-	replace map[string]ipldmodel.Node
+	node     ipldmodel.Node
+	add      map[string]ipldmodel.Node
+	addNames []string
+	del      map[string]struct{}
+	replace  map[string]ipldmodel.Node
 }
 
 // compile-time interface assertions
@@ -29,7 +30,7 @@ var (
 )
 
 func newMapValue(node ipldmodel.Node) Value {
-	return &mapValue{node, nil, nil, nil}
+	return &mapValue{node, nil, nil, nil, nil}
 }
 
 func (v *mapValue) Node() ipldmodel.Node {
@@ -106,6 +107,7 @@ func (v *mapValue) clear() {
 	_ = err
 	v.node = nb.Build()
 	v.add = nil
+	v.addNames = nil
 	v.replace = nil
 	v.del = nil
 }
@@ -164,8 +166,10 @@ func _mapCopy(mv *mapValue, args []starlark.Value) (starlark.Value, error) {
 	build.node = mv.node
 	if mv.add != nil {
 		build.add = make(map[string]ipldmodel.Node, len(mv.add))
+		build.addNames = make([]string, 0, len(mv.addNames))
 		for name, nval := range mv.add {
 			build.add[name] = nval
+			build.addNames = append(build.addNames, name)
 		}
 	}
 	if mv.replace != nil {
@@ -239,7 +243,8 @@ func _mapItems(mv *mapValue, args []starlark.Value) (starlark.Value, error) {
 	}
 
 	// add new keys and values to the new builder
-	for name, nval := range mv.add {
+	for _, name := range mv.addNames {
+		nval := mv.add[name]
 		hostItems, err = appendTwoItemListAsHost(hostItems, basicnode.NewString(name), nval)
 		if err != nil {
 			return starlark.None, err
@@ -269,7 +274,7 @@ func _mapKeys(mv *mapValue, args []starlark.Value) (starlark.Value, error) {
 	}
 
 	// add new keys and values to the new builder
-	for name := range mv.add {
+	for _, name := range mv.addNames {
 		hostItems = append(hostItems, nodeToHost(basicnode.NewString(name)))
 	}
 
@@ -289,6 +294,7 @@ func _mapPop(mv *mapValue, args []starlark.Value) (starlark.Value, error) {
 		if node, ok := mv.add[name]; ok {
 			// test me
 			delete(mv.add, name)
+			mv.addNames = removeFromSlice(mv.addNames, name)
 			return nodeToHost(node), nil
 		}
 	}
@@ -412,7 +418,8 @@ func _mapValues(mv *mapValue, args []starlark.Value) (starlark.Value, error) {
 	}
 
 	// add new keys and values to the new builder
-	for _, nodeAdd := range mv.add {
+	for _, name := range mv.addNames {
+		nodeAdd := mv.add[name]
 		hostItems = append(hostItems, nodeToHost(nodeAdd))
 	}
 
@@ -473,6 +480,7 @@ func (v *mapValue) SetKey(starName, starVal starlark.Value) error {
 			v.add = make(map[string]ipldmodel.Node)
 		}
 		v.add[name] = node
+		v.addNames = append(v.addNames, name)
 	} else {
 		if v.replace == nil {
 			v.replace = make(map[string]ipldmodel.Node)
@@ -535,7 +543,8 @@ func (v *mapValue) applyChangesToNode() error {
 	}
 
 	// add new keys and values to the new builder
-	for name, nodeAdd := range v.add {
+	for _, name := range v.addNames {
+		nodeAdd := v.add[name]
 		na := ma.AssembleKey()
 		if err = na.AssignString(name); err != nil {
 			return nil
@@ -553,6 +562,7 @@ func (v *mapValue) applyChangesToNode() error {
 	}
 	v.node = nb.Build()
 	v.add = nil
+	v.addNames = nil
 	v.replace = nil
 	v.del = nil
 	return nil
@@ -566,4 +576,13 @@ func appendTwoItemListAsHost(hostList []starlark.Value, none ipldmodel.Node, ntw
 		return nil, err
 	}
 	return append(hostList, newHostList), nil
+}
+
+func removeFromSlice(subject []string, needle string) []string {
+	for i, val := range subject {
+		if val == needle {
+			return append(subject[:i], subject[i+1:]...)
+		}
+	}
+	return subject
 }

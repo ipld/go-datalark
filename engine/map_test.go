@@ -524,6 +524,28 @@ string{"date"}
 `)
 }
 
+func TestDeterministic(t *testing.T) {
+	mustParseSchemaRunScriptAssertOutput(t,
+		`
+	`,
+		`mytypes`,
+		`
+m = datalark.Map(_={})
+m['a'] = 'apple'
+m['b'] = 'banana'
+m['c'] = 'cherry'
+m.setdefault('d', 'durian')
+print(m)
+`, `
+map{
+	string{"a"}: string{"apple"}
+	string{"b"}: string{"banana"}
+	string{"c"}: string{"cherry"}
+	string{"d"}: string{"durian"}
+}
+`)
+}
+
 func TestMethodSetdefault(t *testing.T) {
 	mustParseSchemaRunScriptAssertOutput(t,
 		`
