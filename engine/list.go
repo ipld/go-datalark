@@ -72,12 +72,61 @@ func (v *listValue) Len() int {
 
 // starlark.HasAttrs : starlark.List
 
-var listMethods = []string{"clear", "copy", "fromkeys", "get", "items", "keys", "pop", "popitem", "setdefault", "update", "values"}
-
-func (v *listValue) Attr(gstrName string) (starlark.Value, error) {
-	return starlark.None, nil
+func (v *listValue) Attr(name string) (starlark.Value, error) {
+	builtin, ok := listMethods[name]
+	if !ok {
+		return starlark.None, fmt.Errorf("attribute %s not found", name)
+	}
+	return builtin.BindReceiver(v), nil
 }
 
 func (v *listValue) AttrNames() []string {
-	return listMethods
+	res := make([]string, 0, len(listMethods))
+	for name := range listMethods {
+		res = append(res, name)
+	}
+	return res
+}
+
+// methods
+
+type listMethod func(*listValue, []starlark.Value) (starlark.Value, error)
+
+var listMethods = map[string]*starlark.Builtin{
+	"append":  NewListMethod("append", _listAppend, 1, 1), // element
+	"clear":   NewListMethod("clear", _listClear, 0, 0),
+	"copy":    NewListMethod("copy", _listCopy, 0, 0),
+	"count":   NewListMethod("count", _listCount, 1, 1),   // value
+	"extend":  NewListMethod("extend", _listExtend, 1, 1), // iterable
+	"index":   NewListMethod("index", _listIndex, 1, 1),   // element
+	"insert":  NewListMethod("insert", _listInsert, 2, 2), // pos, element
+	"remove":  NewListMethod("remove", _listRemove, 1, 1), // element
+	"reverse": NewListMethod("reverse", _listReverse, 0, 0),
+	"sort":    NewListMethod("sort", _listSort, 0, 2), // ?reverse, ?key
+}
+
+func NewListMethod(name string, meth listMethod, numNeed, numAllow int) *starlark.Builtin {
+	starlarkMethod := func(_ *starlark.Thread, b *starlark.Builtin, args starlark.Tuple, kwargs []starlark.Tuple) (starlark.Value, error) {
+		var first, second starlark.Value
+		err := starlark.UnpackArgs(b.Name(), args, nil, "first?", &first, "second?", &second)
+		if err != nil {
+			return nil, err
+		}
+		paramList := make([]starlark.Value, 0, 2)
+		if first != nil {
+			paramList = append(paramList, first)
+		}
+		if second != nil {
+			paramList = append(paramList, second)
+		}
+		if len(paramList) < numNeed {
+			return starlark.None, fmt.Errorf("need %d parameters, got %d", numNeed, len(paramList))
+		}
+		if len(paramList) > numAllow {
+			return starlark.None, fmt.Errorf("allows %d parameters, got %d", numAllow, len(paramList))
+		}
+		mv := b.Receiver().(*listValue)
+		return meth(mv, paramList)
+	}
+	return starlark.NewBuiltin(name, starlarkMethod)
 }
