@@ -102,9 +102,8 @@ func (v *mapValue) Len() int {
 
 func (v *mapValue) clear() {
 	nb := v.node.Prototype().NewBuilder()
-	ma, err := nb.BeginMap(0)
-	err = ma.Finish()
-	_ = err
+	ma, _ := nb.BeginMap(0)
+	_ = ma.Finish()
 	v.node = nb.Build()
 	v.add = nil
 	v.addNames = nil

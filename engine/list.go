@@ -11,17 +11,22 @@ import (
 )
 
 type listValue struct {
-	node datamodel.Node
+	node   datamodel.Node
+	suffix []datamodel.Node
 }
 
-var _ Value = (*listValue)(nil)
-var _ starlark.Sequence = (*listValue)(nil)
+var (
+	_ Value              = (*listValue)(nil)
+	_ starlark.Indexable = (*listValue)(nil)
+	_ starlark.Sequence  = (*listValue)(nil)
+)
 
 func newListValue(node datamodel.Node) Value {
-	return &listValue{node}
+	return &listValue{node, nil}
 }
 
 func (v *listValue) Node() datamodel.Node {
+	v.applyChangesToNode()
 	return v.node
 }
 func (v *listValue) Type() string {
@@ -30,6 +35,7 @@ func (v *listValue) Type() string {
 	return fmt.Sprintf("datalark.List")
 }
 func (v *listValue) String() string {
+	v.applyChangesToNode()
 	return printer.Sprint(v.node)
 }
 func (v *listValue) Freeze() {}
@@ -67,7 +73,25 @@ func (v *listValue) Iterate() starlark.Iterator {
 }
 
 func (v *listValue) Len() int {
-	return int(v.node.Length())
+	return int(v.node.Length()) + len(v.suffix)
+}
+
+// starlark.Indexable
+
+func (v *listValue) Index(i int) starlark.Value {
+	totalLen := int(v.node.Length()) + len(v.suffix)
+	if i >= totalLen {
+		panic(fmt.Errorf("index out of range, index = %d, len = %d", i, totalLen))
+	}
+	if i < int(v.node.Length()) {
+		item, err := v.node.LookupByIndex(int64(i))
+		if err != nil {
+			panic(err)
+		}
+		return nodeToHost(item)
+	}
+	j := i - int(v.node.Length())
+	return nodeToHost(v.suffix[j])
 }
 
 // starlark.HasAttrs : starlark.List
@@ -86,6 +110,16 @@ func (v *listValue) AttrNames() []string {
 		res = append(res, name)
 	}
 	return res
+}
+
+// utility
+
+func (v *listValue) clear() {
+	nb := v.node.Prototype().NewBuilder()
+	la, _ := nb.BeginList(0)
+	_ = la.Finish()
+	v.node = nb.Build()
+	v.suffix = nil
 }
 
 // methods
@@ -132,19 +166,55 @@ func NewListMethod(name string, meth listMethod, numNeed, numAllow int) *starlar
 }
 
 func _listAppend(lv *listValue, args []starlark.Value) (starlark.Value, error) {
-	return nil, nil
+	hostItem, err := starToHost(args[0])
+	if err != nil {
+		return nil, err
+	}
+	lv.suffix = append(lv.suffix, hostItem.Node())
+	return starlark.None, nil
 }
 
 func _listClear(lv *listValue, args []starlark.Value) (starlark.Value, error) {
-	return nil, nil
+	lv.clear()
+	return starlark.None, nil
 }
 
 func _listCopy(lv *listValue, args []starlark.Value) (starlark.Value, error) {
-	return nil, nil
+	build := make([]datamodel.Node, len(lv.suffix))
+	for i := 0; i < len(lv.suffix); i++ {
+		build[i] = lv.suffix[i]
+	}
+	return &listValue{lv.node, build}, nil
 }
 
 func _listCount(lv *listValue, args []starlark.Value) (starlark.Value, error) {
-	return nil, nil
+	var elem starlark.Value
+	err := starlark.UnpackArgs("count", args, nil, "elem?", &elem)
+	if err != nil {
+		return nil, err
+	}
+	hostElem, err := starToHost(elem)
+	if err != nil {
+		return nil, err
+	}
+	count := 0
+	nodeFind := hostElem.Node()
+	iter := lv.node.ListIterator()
+	for !iter.Done() {
+		_, nodeItem, err := iter.Next()
+		if err != nil {
+			return nil, err
+		}
+		if datamodel.DeepEqual(nodeItem, nodeFind) {
+			count++
+		}
+	}
+	for _, nodeItem := range lv.suffix {
+		if datamodel.DeepEqual(nodeItem, nodeFind) {
+			count++
+		}
+	}
+	return NewInt(int64(count)), nil
 }
 
 func _listExtend(lv *listValue, args []starlark.Value) (starlark.Value, error) {
@@ -169,4 +239,42 @@ func _listReverse(lv *listValue, args []starlark.Value) (starlark.Value, error) 
 
 func _listSort(lv *listValue, args []starlark.Value) (starlark.Value, error) {
 	return nil, nil
+}
+
+func (v *listValue) applyChangesToNode() error {
+	if len(v.suffix) == 0 {
+		return nil
+	}
+
+	nb := basicnode.Prototype.List.NewBuilder()
+	size := int(v.node.Length()) + len(v.suffix)
+	la, err := nb.BeginList(int64(size))
+	if err != nil {
+		return err
+	}
+
+	iter := v.node.ListIterator()
+	for !iter.Done() {
+		_, nodeItem, err := iter.Next()
+		if err != nil {
+			return err
+		}
+		if err := la.AssembleValue().AssignNode(nodeItem); err != nil {
+			return err
+		}
+	}
+
+	for _, nodeItem := range v.suffix {
+		if err := la.AssembleValue().AssignNode(nodeItem); err != nil {
+			return err
+		}
+	}
+
+	if err := la.Finish(); err != nil {
+		return err
+	}
+
+	v.node = nb.Build()
+	v.suffix = nil
+	return nil
 }
