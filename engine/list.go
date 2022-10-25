@@ -130,3 +130,43 @@ func NewListMethod(name string, meth listMethod, numNeed, numAllow int) *starlar
 	}
 	return starlark.NewBuiltin(name, starlarkMethod)
 }
+
+func _listAppend(lv *listValue, args []starlark.Value) (starlark.Value, error) {
+	return nil, nil
+}
+
+func _listClear(lv *listValue, args []starlark.Value) (starlark.Value, error) {
+	return nil, nil
+}
+
+func _listCopy(lv *listValue, args []starlark.Value) (starlark.Value, error) {
+	return nil, nil
+}
+
+func _listCount(lv *listValue, args []starlark.Value) (starlark.Value, error) {
+	return nil, nil
+}
+
+func _listExtend(lv *listValue, args []starlark.Value) (starlark.Value, error) {
+	return nil, nil
+}
+
+func _listIndex(lv *listValue, args []starlark.Value) (starlark.Value, error) {
+	return nil, nil
+}
+
+func _listInsert(lv *listValue, args []starlark.Value) (starlark.Value, error) {
+	return nil, nil
+}
+
+func _listRemove(lv *listValue, args []starlark.Value) (starlark.Value, error) {
+	return nil, nil
+}
+
+func _listReverse(lv *listValue, args []starlark.Value) (starlark.Value, error) {
+	return nil, nil
+}
+
+func _listSort(lv *listValue, args []starlark.Value) (starlark.Value, error) {
+	return nil, nil
+}
