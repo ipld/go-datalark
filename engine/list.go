@@ -189,7 +189,7 @@ func _listCopy(lv *listValue, args []starlark.Value) (starlark.Value, error) {
 
 func _listCount(lv *listValue, args []starlark.Value) (starlark.Value, error) {
 	var elem starlark.Value
-	err := starlark.UnpackArgs("count", args, nil, "elem?", &elem)
+	err := starlark.UnpackArgs("count", args, nil, "elem", &elem)
 	if err != nil {
 		return nil, err
 	}
@@ -218,11 +218,56 @@ func _listCount(lv *listValue, args []starlark.Value) (starlark.Value, error) {
 }
 
 func _listExtend(lv *listValue, args []starlark.Value) (starlark.Value, error) {
-	return nil, nil
+	var svals starlark.Value
+	if err := starlark.UnpackPositionalArgs("extend", args, nil, 1, &svals); err != nil {
+		return starlark.None, err
+	}
+
+	siterable, ok := svals.(starlark.Iterable)
+	if !ok {
+		return nil, fmt.Errorf("list.extend requires an iterable")
+	}
+	starIter := siterable.Iterate()
+
+	var starElem starlark.Value
+	for starIter.Next(&starElem) {
+		hostItem, err := starToHost(starElem)
+		if err != nil {
+			return nil, err
+		}
+		lv.suffix = append(lv.suffix, hostItem.Node())
+	}
+
+	return starlark.None, nil
 }
 
 func _listIndex(lv *listValue, args []starlark.Value) (starlark.Value, error) {
-	return nil, nil
+	var elem starlark.Value
+	err := starlark.UnpackArgs("count", args, nil, "elem", &elem)
+	if err != nil {
+		return nil, err
+	}
+	hostElem, err := starToHost(elem)
+	if err != nil {
+		return nil, err
+	}
+	nodeFind := hostElem.Node()
+	iter := lv.node.ListIterator()
+	for !iter.Done() {
+		i, nodeItem, err := iter.Next()
+		if err != nil {
+			return nil, err
+		}
+		if datamodel.DeepEqual(nodeItem, nodeFind) {
+			return NewInt(i), nil
+		}
+	}
+	for i, nodeItem := range lv.suffix {
+		if datamodel.DeepEqual(nodeItem, nodeFind) {
+			return NewInt(int64(i) + lv.node.Length()), nil
+		}
+	}
+	return NewInt(-1), nil
 }
 
 func _listInsert(lv *listValue, args []starlark.Value) (starlark.Value, error) {

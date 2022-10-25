@@ -133,3 +133,47 @@ int{0}
 int{1}
 `)
 }
+
+func TestListExtend(t *testing.T) {
+	mustParseSchemaRunScriptAssertOutput(t,
+		`
+	`,
+		`mytypes`,
+		`
+ls = datalark.List(_=['a', 'b', 'c'])
+ls.extend(['d', 'e', 'f'])
+print(len(ls))
+print(ls)
+`, `
+6
+list{
+	0: string{"a"}
+	1: string{"b"}
+	2: string{"c"}
+	3: string{"d"}
+	4: string{"e"}
+	5: string{"f"}
+}
+`)
+}
+
+func TestListMethodIndex(t *testing.T) {
+	mustParseSchemaRunScriptAssertOutput(t,
+		`
+	`,
+		`mytypes`,
+		`
+ls = datalark.List(_=['a', 'b', 'a'])
+ls.append('a')
+ls.append('d')
+print(ls.index('a'))
+print(ls.index('b'))
+print(ls.index('c'))
+print(ls.index('d'))
+`, `
+int{0}
+int{1}
+int{-1}
+int{4}
+`)
+}
