@@ -3,6 +3,7 @@ package datalarkengine
 import (
 	"errors"
 	"fmt"
+	"sort"
 
 	"github.com/ipld/go-ipld-prime/datamodel"
 	"github.com/ipld/go-ipld-prime/node/basicnode"
@@ -352,11 +353,51 @@ func listMethodRemove(lv *listValue, args []starlark.Value) (starlark.Value, err
 }
 
 func listMethodReverse(lv *listValue, args []starlark.Value) (starlark.Value, error) {
-	return nil, nil
+	// convert the entire list to a slice in order to get random access
+	_, nodeList, err := lv.splitNodeAtIndex(0)
+	if err != nil {
+		return nil, err
+	}
+	nodeList = append(nodeList, lv.suffix...)
+
+	nb := basicnode.Prototype.List.NewBuilder()
+	la, err := nb.BeginList(int64(len(nodeList)))
+	if err != nil {
+		return nil, err
+	}
+
+	// reverse the list by building a new ipld node in reverse order
+	for i := len(nodeList) - 1; i >= 0; i-- {
+		if err := la.AssembleValue().AssignNode(nodeList[i]); err != nil {
+			return nil, err
+		}
+	}
+
+	if err := la.Finish(); err != nil {
+		return nil, err
+	}
+
+	lv.node = nb.Build()
+	lv.suffix = nil
+	return starlark.None, nil
 }
 
 func listMethodSort(lv *listValue, args []starlark.Value) (starlark.Value, error) {
-	return nil, nil
+	// convert the entire list to a slice in order to get random access
+	_, nodeList, err := lv.splitNodeAtIndex(0)
+	if err != nil {
+		return nil, err
+	}
+	nodeList = append(nodeList, lv.suffix...)
+
+	// sort using printed nodes
+	sort.Slice(nodeList, func(i, j int) bool {
+		return printer.Sprint(nodeList[i]) < printer.Sprint(nodeList[j])
+	})
+
+	lv.clear()
+	lv.suffix = nodeList
+	return starlark.None, nil
 }
 
 // utilities

@@ -362,3 +362,78 @@ print(ls)
 list{}
 `)
 }
+
+func TestListMethodReverse(t *testing.T) {
+	mustParseSchemaRunScriptAssertOutput(t,
+		`
+	`,
+		`mytypes`,
+		`
+ls = datalark.List(_=['a', 'b', 'c'])
+ls.reverse()
+print(ls)
+`, `
+list{
+	0: string{"c"}
+	1: string{"b"}
+	2: string{"a"}
+}
+`)
+
+	mustParseSchemaRunScriptAssertOutput(t,
+		`
+	`,
+		`mytypes`,
+		`
+ls = datalark.List(_=['a', 'b', 'c'])
+ls.append('d')
+ls.reverse()
+print(ls)
+`, `
+list{
+	0: string{"d"}
+	1: string{"c"}
+	2: string{"b"}
+	3: string{"a"}
+}
+`)
+}
+
+func TestListMethodSort(t *testing.T) {
+	mustParseSchemaRunScriptAssertOutput(t,
+		`
+	`,
+		`mytypes`,
+		`
+ls = datalark.List(_=['b', 'd', 'a', 'c'])
+ls.sort()
+print(ls)
+`, `
+list{
+	0: string{"a"}
+	1: string{"b"}
+	2: string{"c"}
+	3: string{"d"}
+}
+`)
+
+	mustParseSchemaRunScriptAssertOutput(t,
+		`
+	`,
+		`mytypes`,
+		`
+ls = datalark.List(_=['b', 'e', 'c'])
+ls.append('a')
+ls.append('d')
+ls.sort()
+print(ls)
+`, `
+list{
+	0: string{"a"}
+	1: string{"b"}
+	2: string{"c"}
+	3: string{"d"}
+	4: string{"e"}
+}
+`)
+}
