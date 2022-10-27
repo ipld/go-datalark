@@ -127,16 +127,16 @@ func (v *listValue) clear() {
 type listMethod func(*listValue, []starlark.Value) (starlark.Value, error)
 
 var listMethods = map[string]*starlark.Builtin{
-	"append":  NewListMethod("append", _listAppend, 1, 1),
-	"clear":   NewListMethod("clear", _listClear, 0, 0),
-	"copy":    NewListMethod("copy", _listCopy, 0, 0),
-	"count":   NewListMethod("count", _listCount, 1, 1),
-	"extend":  NewListMethod("extend", _listExtend, 1, 1),
-	"index":   NewListMethod("index", _listIndex, 1, 1),
-	"insert":  NewListMethod("insert", _listInsert, 2, 2),
-	"remove":  NewListMethod("remove", _listRemove, 1, 1),
-	"reverse": NewListMethod("reverse", _listReverse, 0, 0),
-	"sort":    NewListMethod("sort", _listSort, 0, 2),
+	"append":  NewListMethod("append", listMethodAppend, 1, 1),
+	"clear":   NewListMethod("clear", listMethodClear, 0, 0),
+	"copy":    NewListMethod("copy", listMethodCopy, 0, 0),
+	"count":   NewListMethod("count", listMethodCount, 1, 1),
+	"extend":  NewListMethod("extend", listMethodExtend, 1, 1),
+	"index":   NewListMethod("index", listMethodIndex, 1, 1),
+	"insert":  NewListMethod("insert", listMethodInsert, 2, 2),
+	"remove":  NewListMethod("remove", listMethodRemove, 1, 1),
+	"reverse": NewListMethod("reverse", listMethodReverse, 0, 0),
+	"sort":    NewListMethod("sort", listMethodSort, 0, 2),
 }
 
 func NewListMethod(name string, meth listMethod, numNeed, numAllow int) *starlark.Builtin {
@@ -165,7 +165,7 @@ func NewListMethod(name string, meth listMethod, numNeed, numAllow int) *starlar
 	return starlark.NewBuiltin(name, starlarkMethod)
 }
 
-func _listAppend(lv *listValue, args []starlark.Value) (starlark.Value, error) {
+func listMethodAppend(lv *listValue, args []starlark.Value) (starlark.Value, error) {
 	hostItem, err := starToHost(args[0])
 	if err != nil {
 		return nil, err
@@ -174,12 +174,12 @@ func _listAppend(lv *listValue, args []starlark.Value) (starlark.Value, error) {
 	return starlark.None, nil
 }
 
-func _listClear(lv *listValue, args []starlark.Value) (starlark.Value, error) {
+func listMethodClear(lv *listValue, args []starlark.Value) (starlark.Value, error) {
 	lv.clear()
 	return starlark.None, nil
 }
 
-func _listCopy(lv *listValue, args []starlark.Value) (starlark.Value, error) {
+func listMethodCopy(lv *listValue, args []starlark.Value) (starlark.Value, error) {
 	build := make([]datamodel.Node, len(lv.suffix))
 	for i := 0; i < len(lv.suffix); i++ {
 		build[i] = lv.suffix[i]
@@ -187,7 +187,7 @@ func _listCopy(lv *listValue, args []starlark.Value) (starlark.Value, error) {
 	return &listValue{lv.node, build}, nil
 }
 
-func _listCount(lv *listValue, args []starlark.Value) (starlark.Value, error) {
+func listMethodCount(lv *listValue, args []starlark.Value) (starlark.Value, error) {
 	var elem starlark.Value
 	err := starlark.UnpackArgs("count", args, nil, "elem", &elem)
 	if err != nil {
@@ -217,7 +217,7 @@ func _listCount(lv *listValue, args []starlark.Value) (starlark.Value, error) {
 	return NewInt(int64(count)), nil
 }
 
-func _listExtend(lv *listValue, args []starlark.Value) (starlark.Value, error) {
+func listMethodExtend(lv *listValue, args []starlark.Value) (starlark.Value, error) {
 	var svals starlark.Value
 	if err := starlark.UnpackPositionalArgs("extend", args, nil, 1, &svals); err != nil {
 		return starlark.None, err
@@ -241,7 +241,7 @@ func _listExtend(lv *listValue, args []starlark.Value) (starlark.Value, error) {
 	return starlark.None, nil
 }
 
-func _listIndex(lv *listValue, args []starlark.Value) (starlark.Value, error) {
+func listMethodIndex(lv *listValue, args []starlark.Value) (starlark.Value, error) {
 	var elem starlark.Value
 	err := starlark.UnpackArgs("count", args, nil, "elem", &elem)
 	if err != nil {
@@ -258,7 +258,7 @@ func _listIndex(lv *listValue, args []starlark.Value) (starlark.Value, error) {
 	return NewInt(index), nil
 }
 
-func _listInsert(lv *listValue, args []starlark.Value) (starlark.Value, error) {
+func listMethodInsert(lv *listValue, args []starlark.Value) (starlark.Value, error) {
 	var sindex starlark.Int
 	var selem starlark.Value
 	if err := starlark.UnpackPositionalArgs("insert", args, nil, 2, &sindex, &selem); err != nil {
@@ -305,7 +305,7 @@ func _listInsert(lv *listValue, args []starlark.Value) (starlark.Value, error) {
 	return starlark.None, nil
 }
 
-func _listRemove(lv *listValue, args []starlark.Value) (starlark.Value, error) {
+func listMethodRemove(lv *listValue, args []starlark.Value) (starlark.Value, error) {
 	var selem starlark.Value
 	if err := starlark.UnpackPositionalArgs("remove", args, nil, 1, &selem); err != nil {
 		return nil, err
@@ -318,6 +318,9 @@ func _listRemove(lv *listValue, args []starlark.Value) (starlark.Value, error) {
 	index, err := findFirstLoc(lv, hostElem)
 	if err != nil {
 		return nil, err
+	}
+	if index == -1 {
+		return nil, fmt.Errorf("remove: element %s not found", selem)
 	}
 
 	if index < lv.node.Length() {
@@ -348,11 +351,11 @@ func _listRemove(lv *listValue, args []starlark.Value) (starlark.Value, error) {
 	return starlark.None, nil
 }
 
-func _listReverse(lv *listValue, args []starlark.Value) (starlark.Value, error) {
+func listMethodReverse(lv *listValue, args []starlark.Value) (starlark.Value, error) {
 	return nil, nil
 }
 
-func _listSort(lv *listValue, args []starlark.Value) (starlark.Value, error) {
+func listMethodSort(lv *listValue, args []starlark.Value) (starlark.Value, error) {
 	return nil, nil
 }
 
@@ -375,7 +378,7 @@ func findFirstLoc(lv *listValue, hostVal Value) (int64, error) {
 			return int64(i) + lv.node.Length(), nil
 		}
 	}
-	return -1, fmt.Errorf("not found: %v", hostVal)
+	return -1, nil
 }
 
 func (v *listValue) splitNodeAtIndex(splitIndex int64) (datamodel.Node, []datamodel.Node, error) {

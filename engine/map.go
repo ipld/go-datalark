@@ -184,17 +184,17 @@ func (v *mapValue) lastInsertedKey() (string, bool) {
 type mapMethod func(*mapValue, []starlark.Value) (starlark.Value, error)
 
 var mapMethods = map[string]*starlark.Builtin{
-	"clear":      NewMapMethod("clear", _mapClear, 0, 0),
-	"copy":       NewMapMethod("copy", _mapCopy, 0, 0),
-	"fromkeys":   NewMapMethod("fromkeys", _mapFromkeys, 1, 2),
-	"get":        NewMapMethod("get", _mapGet, 1, 2),
-	"items":      NewMapMethod("items", _mapItems, 0, 0),
-	"keys":       NewMapMethod("keys", _mapKeys, 0, 0),
-	"pop":        NewMapMethod("pop", _mapPop, 1, 2),
-	"popitem":    NewMapMethod("popitem", _mapPopitem, 0, 0),
-	"setdefault": NewMapMethod("setdefault", _mapSetdefault, 1, 2),
-	"update":     NewMapMethod("update", _mapUpdate, 1, 1),
-	"values":     NewMapMethod("values", _mapValues, 0, 0),
+	"clear":      NewMapMethod("clear", mapMethodClear, 0, 0),
+	"copy":       NewMapMethod("copy", mapMethodCopy, 0, 0),
+	"fromkeys":   NewMapMethod("fromkeys", mapMethodFromkeys, 1, 2),
+	"get":        NewMapMethod("get", mapMethodGet, 1, 2),
+	"items":      NewMapMethod("items", mapMethodItems, 0, 0),
+	"keys":       NewMapMethod("keys", mapMethodKeys, 0, 0),
+	"pop":        NewMapMethod("pop", mapMethodPop, 1, 2),
+	"popitem":    NewMapMethod("popitem", mapMethodPopitem, 0, 0),
+	"setdefault": NewMapMethod("setdefault", mapMethodSetdefault, 1, 2),
+	"update":     NewMapMethod("update", mapMethodUpdate, 1, 1),
+	"values":     NewMapMethod("values", mapMethodValues, 0, 0),
 }
 
 func NewMapMethod(name string, meth mapMethod, numNeed, numAllow int) *starlark.Builtin {
@@ -223,12 +223,12 @@ func NewMapMethod(name string, meth mapMethod, numNeed, numAllow int) *starlark.
 	return starlark.NewBuiltin(name, starlarkMethod)
 }
 
-func _mapClear(mv *mapValue, args []starlark.Value) (starlark.Value, error) {
+func mapMethodClear(mv *mapValue, args []starlark.Value) (starlark.Value, error) {
 	mv.clear()
 	return starlark.None, nil
 }
 
-func _mapCopy(mv *mapValue, args []starlark.Value) (starlark.Value, error) {
+func mapMethodCopy(mv *mapValue, args []starlark.Value) (starlark.Value, error) {
 	build := &mapValue{}
 	build.node = mv.node
 	if mv.add != nil {
@@ -254,7 +254,7 @@ func _mapCopy(mv *mapValue, args []starlark.Value) (starlark.Value, error) {
 	return build, nil
 }
 
-func _mapFromkeys(mv *mapValue, args []starlark.Value) (starlark.Value, error) {
+func mapMethodFromkeys(mv *mapValue, args []starlark.Value) (starlark.Value, error) {
 	var skeys, svalue starlark.Value
 	if err := starlark.UnpackPositionalArgs("fromkeys", args, nil, 1, &skeys, &svalue); err != nil {
 		return starlark.None, err
@@ -308,7 +308,7 @@ func _mapFromkeys(mv *mapValue, args []starlark.Value) (starlark.Value, error) {
 	return newMapValue(nb.Build()), nil
 }
 
-func _mapGet(mv *mapValue, args []starlark.Value) (starlark.Value, error) {
+func mapMethodGet(mv *mapValue, args []starlark.Value) (starlark.Value, error) {
 	var skey, sdefault starlark.Value
 	if err := starlark.UnpackPositionalArgs("get", args, nil, 1, &skey, &sdefault); err != nil {
 		return starlark.None, err
@@ -325,7 +325,7 @@ func _mapGet(mv *mapValue, args []starlark.Value) (starlark.Value, error) {
 	return starlark.None, nil
 }
 
-func _mapItems(mv *mapValue, args []starlark.Value) (starlark.Value, error) {
+func mapMethodItems(mv *mapValue, args []starlark.Value) (starlark.Value, error) {
 	var hostItems []starlark.Value
 	var err error
 
@@ -369,7 +369,7 @@ func _mapItems(mv *mapValue, args []starlark.Value) (starlark.Value, error) {
 	return NewList(starlark.NewList(hostItems))
 }
 
-func _mapKeys(mv *mapValue, args []starlark.Value) (starlark.Value, error) {
+func mapMethodKeys(mv *mapValue, args []starlark.Value) (starlark.Value, error) {
 	var hostItems []starlark.Value
 
 	nodeMapIter := mv.node.MapIterator()
@@ -397,7 +397,7 @@ func _mapKeys(mv *mapValue, args []starlark.Value) (starlark.Value, error) {
 	return NewList(starlark.NewList(hostItems))
 }
 
-func _mapPop(mv *mapValue, args []starlark.Value) (starlark.Value, error) {
+func mapMethodPop(mv *mapValue, args []starlark.Value) (starlark.Value, error) {
 	var skey starlark.String
 	var sdefault starlark.Value
 	if err := starlark.UnpackPositionalArgs("pop", args, nil, 1, &skey, &sdefault); err != nil {
@@ -413,7 +413,7 @@ func _mapPop(mv *mapValue, args []starlark.Value) (starlark.Value, error) {
 	return nil, fmt.Errorf("error, not found: %s", skey)
 }
 
-func _mapPopitem(mv *mapValue, args []starlark.Value) (starlark.Value, error) {
+func mapMethodPopitem(mv *mapValue, args []starlark.Value) (starlark.Value, error) {
 	name, hasKey := mv.lastInsertedKey()
 	if !hasKey {
 		return starlark.None, fmt.Errorf("error, not found: %s", name)
@@ -421,7 +421,7 @@ func _mapPopitem(mv *mapValue, args []starlark.Value) (starlark.Value, error) {
 	return mv.removeKey(starlark.String(name)), nil
 }
 
-func _mapSetdefault(mv *mapValue, args []starlark.Value) (starlark.Value, error) {
+func mapMethodSetdefault(mv *mapValue, args []starlark.Value) (starlark.Value, error) {
 	var skey starlark.String
 	var svalue starlark.Value
 	if err := starlark.UnpackPositionalArgs("setdefault", args, nil, 1, &skey, &svalue); err != nil {
@@ -445,7 +445,7 @@ func _mapSetdefault(mv *mapValue, args []starlark.Value) (starlark.Value, error)
 	return starToHost(svalue)
 }
 
-func _mapUpdate(mv *mapValue, args []starlark.Value) (starlark.Value, error) {
+func mapMethodUpdate(mv *mapValue, args []starlark.Value) (starlark.Value, error) {
 	starObj, ok := args[0].(starlark.IterableMapping)
 	if !ok {
 		return nil, fmt.Errorf("map.update requires an iterable mapping")
@@ -469,7 +469,7 @@ func _mapUpdate(mv *mapValue, args []starlark.Value) (starlark.Value, error) {
 	return starlark.None, nil
 }
 
-func _mapValues(mv *mapValue, args []starlark.Value) (starlark.Value, error) {
+func mapMethodValues(mv *mapValue, args []starlark.Value) (starlark.Value, error) {
 	// all content should be datalark.Node, but using a starlark.Value interface
 	var hostItems []starlark.Value
 
