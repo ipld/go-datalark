@@ -127,16 +127,16 @@ func (v *listValue) clear() {
 type listMethod func(*listValue, []starlark.Value) (starlark.Value, error)
 
 var listMethods = map[string]*starlark.Builtin{
-	"append":  NewListMethod("append", _listAppend, 1, 1), // element
+	"append":  NewListMethod("append", _listAppend, 1, 1),
 	"clear":   NewListMethod("clear", _listClear, 0, 0),
 	"copy":    NewListMethod("copy", _listCopy, 0, 0),
-	"count":   NewListMethod("count", _listCount, 1, 1),   // value
-	"extend":  NewListMethod("extend", _listExtend, 1, 1), // iterable
-	"index":   NewListMethod("index", _listIndex, 1, 1),   // element
-	"insert":  NewListMethod("insert", _listInsert, 2, 2), // pos, element
-	"remove":  NewListMethod("remove", _listRemove, 1, 1), // element
+	"count":   NewListMethod("count", _listCount, 1, 1),
+	"extend":  NewListMethod("extend", _listExtend, 1, 1),
+	"index":   NewListMethod("index", _listIndex, 1, 1),
+	"insert":  NewListMethod("insert", _listInsert, 2, 2),
+	"remove":  NewListMethod("remove", _listRemove, 1, 1),
 	"reverse": NewListMethod("reverse", _listReverse, 0, 0),
-	"sort":    NewListMethod("sort", _listSort, 0, 2), // ?reverse, ?key
+	"sort":    NewListMethod("sort", _listSort, 0, 2),
 }
 
 func NewListMethod(name string, meth listMethod, numNeed, numAllow int) *starlark.Builtin {
@@ -271,7 +271,50 @@ func _listIndex(lv *listValue, args []starlark.Value) (starlark.Value, error) {
 }
 
 func _listInsert(lv *listValue, args []starlark.Value) (starlark.Value, error) {
-	return nil, nil
+	var sindex starlark.Int
+	var selem starlark.Value
+	if err := starlark.UnpackPositionalArgs("insert", args, nil, 2, &sindex, &selem); err != nil {
+		return starlark.None, err
+	}
+
+	index, ok := sindex.Int64()
+	if !ok {
+		return nil, fmt.Errorf("insert index invalid: %v", sindex)
+	}
+
+	if index < lv.node.Length() {
+		// if index is within the already built ipld.Node, split the
+		// node into prior elements, and remaining elements
+		node, remain, err := lv.splitNodeAtIndex(index)
+		if err != nil {
+			return nil, err
+		}
+
+		lv.node = node
+		lv.suffix = append(remain, lv.suffix...)
+	}
+
+	// going to insert by considering only the suffix slice
+	afterIndex := int(index - lv.node.Length())
+	hostItem, err := starToHost(selem)
+	if err != nil {
+		return nil, err
+	}
+
+	// rebuild the suffix, inserting the element when appropriate
+	newSuffix := make([]datamodel.Node, 0, len(lv.suffix)+1)
+	for i, nodeElem := range lv.suffix {
+		if i == afterIndex {
+			newSuffix = append(newSuffix, hostItem.Node())
+		}
+		newSuffix = append(newSuffix, nodeElem)
+	}
+	if afterIndex == len(lv.suffix) {
+		newSuffix = append(newSuffix, hostItem.Node())
+	}
+
+	lv.suffix = newSuffix
+	return starlark.None, nil
 }
 
 func _listRemove(lv *listValue, args []starlark.Value) (starlark.Value, error) {
@@ -284,6 +327,36 @@ func _listReverse(lv *listValue, args []starlark.Value) (starlark.Value, error) 
 
 func _listSort(lv *listValue, args []starlark.Value) (starlark.Value, error) {
 	return nil, nil
+}
+
+func (v *listValue) splitNodeAtIndex(splitIndex int64) (datamodel.Node, []datamodel.Node, error) {
+	nb := basicnode.Prototype.List.NewBuilder()
+	la, err := nb.BeginList(splitIndex)
+	if err != nil {
+		return nil, nil, err
+	}
+	remain := make([]datamodel.Node, 0)
+
+	iter := v.node.ListIterator()
+	for !iter.Done() {
+		i, nodeItem, err := iter.Next()
+		if err != nil {
+			return nil, nil, err
+		}
+		if i < splitIndex {
+			if err := la.AssembleValue().AssignNode(nodeItem); err != nil {
+				return nil, nil, err
+			}
+			continue
+		}
+		remain = append(remain, nodeItem)
+	}
+
+	if err := la.Finish(); err != nil {
+		return nil, nil, err
+	}
+
+	return nb.Build(), remain, nil
 }
 
 func (v *listValue) applyChangesToNode() error {

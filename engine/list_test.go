@@ -177,3 +177,106 @@ int{-1}
 int{4}
 `)
 }
+
+func TestListMethodInsert(t *testing.T) {
+	mustParseSchemaRunScriptAssertOutput(t,
+		`
+	`,
+		`mytypes`,
+		`
+ls = datalark.List(_=['a', 'b', 'c'])
+ls.insert(1, 'x')
+print(ls)
+`, `
+list{
+	0: string{"a"}
+	1: string{"x"}
+	2: string{"b"}
+	3: string{"c"}
+}
+`)
+
+	mustParseSchemaRunScriptAssertOutput(t,
+		`
+	`,
+		`mytypes`,
+		`
+ls = datalark.List(_=['a', 'b', 'c'])
+ls.insert(3, 'x')
+print(ls)
+`, `
+list{
+	0: string{"a"}
+	1: string{"b"}
+	2: string{"c"}
+	3: string{"x"}
+}
+`)
+
+	mustParseSchemaRunScriptAssertOutput(t,
+		`
+	`,
+		`mytypes`,
+		`
+ls = datalark.List(_=['a', 'b', 'c'])
+ls.append('d')
+ls.append('e')
+ls.insert(4, 'x')
+print(ls)
+`, `
+list{
+	0: string{"a"}
+	1: string{"b"}
+	2: string{"c"}
+	3: string{"d"}
+	4: string{"x"}
+	5: string{"e"}
+}
+`)
+
+	mustParseSchemaRunScriptAssertOutput(t,
+		`
+	`,
+		`mytypes`,
+		`
+ls = datalark.List(_=[])
+ls.insert(0, 'x')
+print(ls)
+`, `
+list{
+	0: string{"x"}
+}
+`)
+
+	mustParseSchemaRunScriptAssertOutput(t,
+		`
+	`,
+		`mytypes`,
+		`
+ls = datalark.List(_=[])
+ls.append('a')
+ls.insert(0, 'x')
+print(ls)
+`, `
+list{
+	0: string{"x"}
+	1: string{"a"}
+}
+`)
+
+	mustParseSchemaRunScriptAssertOutput(t,
+		`
+	`,
+		`mytypes`,
+		`
+ls = datalark.List(_=[])
+ls.append('a')
+ls.insert(1, 'x')
+print(ls)
+`, `
+list{
+	0: string{"a"}
+	1: string{"x"}
+}
+`)
+}
