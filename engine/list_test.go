@@ -280,3 +280,85 @@ list{
 }
 `)
 }
+
+func TestListMethodRemove(t *testing.T) {
+	mustParseSchemaRunScriptAssertOutput(t,
+		`
+	`,
+		`mytypes`,
+		`
+ls = datalark.List(_=['a', 'b', 'c'])
+ls.remove('b')
+print(ls)
+`, `
+list{
+	0: string{"a"}
+	1: string{"c"}
+}
+`)
+
+	mustParseSchemaRunScriptAssertOutput(t,
+		`
+	`,
+		`mytypes`,
+		`
+ls = datalark.List(_=['a', 'b', 'a'])
+ls.remove('a')
+print(ls)
+`, `
+list{
+	0: string{"b"}
+	1: string{"a"}
+}
+`)
+
+	mustParseSchemaRunScriptAssertOutput(t,
+		`
+	`,
+		`mytypes`,
+		`
+ls = datalark.List(_=['a', 'b', 'c'])
+ls.append('d')
+ls.append('e')
+ls.remove('c')
+print(ls)
+`, `
+list{
+	0: string{"a"}
+	1: string{"b"}
+	2: string{"d"}
+	3: string{"e"}
+}
+`)
+
+	mustParseSchemaRunScriptAssertOutput(t,
+		`
+	`,
+		`mytypes`,
+		`
+ls = datalark.List(_=['a', 'b', 'c'])
+ls.append('d')
+ls.append('e')
+ls.remove('d')
+print(ls)
+`, `
+list{
+	0: string{"a"}
+	1: string{"b"}
+	2: string{"c"}
+	3: string{"e"}
+}
+`)
+
+	mustParseSchemaRunScriptAssertOutput(t,
+		`
+	`,
+		`mytypes`,
+		`
+ls = datalark.List(_=['a'])
+ls.remove('a')
+print(ls)
+`, `
+list{}
+`)
+}

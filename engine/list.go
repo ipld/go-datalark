@@ -251,23 +251,11 @@ func _listIndex(lv *listValue, args []starlark.Value) (starlark.Value, error) {
 	if err != nil {
 		return nil, err
 	}
-	nodeFind := hostElem.Node()
-	iter := lv.node.ListIterator()
-	for !iter.Done() {
-		i, nodeItem, err := iter.Next()
-		if err != nil {
-			return nil, err
-		}
-		if datamodel.DeepEqual(nodeItem, nodeFind) {
-			return NewInt(i), nil
-		}
+	index, err := findFirstLoc(lv, hostElem)
+	if err != nil {
+		return nil, err
 	}
-	for i, nodeItem := range lv.suffix {
-		if datamodel.DeepEqual(nodeItem, nodeFind) {
-			return NewInt(int64(i) + lv.node.Length()), nil
-		}
-	}
-	return NewInt(-1), nil
+	return NewInt(index), nil
 }
 
 func _listInsert(lv *listValue, args []starlark.Value) (starlark.Value, error) {
@@ -318,7 +306,46 @@ func _listInsert(lv *listValue, args []starlark.Value) (starlark.Value, error) {
 }
 
 func _listRemove(lv *listValue, args []starlark.Value) (starlark.Value, error) {
-	return nil, nil
+	var selem starlark.Value
+	if err := starlark.UnpackPositionalArgs("remove", args, nil, 1, &selem); err != nil {
+		return nil, err
+	}
+	hostElem, err := starToHost(selem)
+	if err != nil {
+		return nil, err
+	}
+
+	index, err := findFirstLoc(lv, hostElem)
+	if err != nil {
+		return nil, err
+	}
+
+	if index < lv.node.Length() {
+		// if index is within the already built ipld.Node, split the
+		// node into prior elements, and remaining elements
+		node, remain, err := lv.splitNodeAtIndex(index)
+		if err != nil {
+			return nil, err
+		}
+
+		lv.node = node
+		lv.suffix = append(remain, lv.suffix...)
+	}
+
+	// remove by only considering the suffix slice
+	afterIndex := index - lv.node.Length()
+
+	// rebuild the suffix, removing the given index
+	newSuffix := make([]datamodel.Node, 0, len(lv.suffix)-1)
+	for i, nodeElem := range lv.suffix {
+		if i == int(afterIndex) {
+			continue
+		}
+		newSuffix = append(newSuffix, nodeElem)
+	}
+
+	lv.suffix = newSuffix
+	return starlark.None, nil
 }
 
 func _listReverse(lv *listValue, args []starlark.Value) (starlark.Value, error) {
@@ -327,6 +354,28 @@ func _listReverse(lv *listValue, args []starlark.Value) (starlark.Value, error) 
 
 func _listSort(lv *listValue, args []starlark.Value) (starlark.Value, error) {
 	return nil, nil
+}
+
+// utilities
+
+func findFirstLoc(lv *listValue, hostVal Value) (int64, error) {
+	nodeFind := hostVal.Node()
+	iter := lv.node.ListIterator()
+	for !iter.Done() {
+		i, nodeItem, err := iter.Next()
+		if err != nil {
+			return -1, err
+		}
+		if datamodel.DeepEqual(nodeItem, nodeFind) {
+			return i, nil
+		}
+	}
+	for i, nodeItem := range lv.suffix {
+		if datamodel.DeepEqual(nodeItem, nodeFind) {
+			return int64(i) + lv.node.Length(), nil
+		}
+	}
+	return -1, fmt.Errorf("not found: %v", hostVal)
 }
 
 func (v *listValue) splitNodeAtIndex(splitIndex int64) (datamodel.Node, []datamodel.Node, error) {
