@@ -17,9 +17,10 @@ type listValue struct {
 }
 
 var (
-	_ Value              = (*listValue)(nil)
-	_ starlark.Indexable = (*listValue)(nil)
-	_ starlark.Sequence  = (*listValue)(nil)
+	_ Value                = (*listValue)(nil)
+	_ starlark.Indexable   = (*listValue)(nil)
+	_ starlark.Sequence    = (*listValue)(nil)
+	_ starlark.HasSetIndex = (*listValue)(nil)
 )
 
 func newListValue(node datamodel.Node) Value {
@@ -93,6 +94,29 @@ func (v *listValue) Index(i int) starlark.Value {
 	}
 	j := i - int(v.node.Length())
 	return nodeToHost(v.suffix[j])
+}
+
+// starlark.HasSetIndex
+
+func (v *listValue) SetIndex(i int, value starlark.Value) error {
+	if i < int(v.node.Length()) {
+		// if assigning within the node, split it
+		node, nodeList, err := v.splitNodeAtIndex(int64(i))
+		if err != nil {
+			return err
+		}
+		v.node = node
+		v.suffix = append(nodeList, v.suffix...)
+	}
+
+	// calculate index into the suffix alone
+	i = i - int(v.node.Length())
+	hostItem, err := starToHost(value)
+	if err != nil {
+		return err
+	}
+	v.suffix[i] = hostItem.Node()
+	return nil
 }
 
 // starlark.HasAttrs : starlark.List

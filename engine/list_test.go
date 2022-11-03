@@ -437,3 +437,43 @@ list{
 }
 `)
 }
+
+func TestListSetKey(t *testing.T) {
+	// create list and assign new elements
+	mustParseSchemaRunScriptAssertOutput(t,
+		`
+	`,
+		`mytypes`,
+		`
+ls = datalark.List(_=['a', 'b', 'c'])
+ls[1] = 'd'
+print(ls)
+`, `
+list{
+	0: string{"a"}
+	1: string{"d"}
+	2: string{"c"}
+}
+`)
+
+	// create list and append then assign new elements
+	mustParseSchemaRunScriptAssertOutput(t,
+		`
+	`,
+		`mytypes`,
+		`
+ls = datalark.List(_=['a', 'b', 'c'])
+ls.append('d')
+ls.append('e')
+ls[4] = 'f'
+print(ls)
+`, `
+list{
+	0: string{"a"}
+	1: string{"b"}
+	2: string{"c"}
+	3: string{"d"}
+	4: string{"f"}
+}
+`)
+}
