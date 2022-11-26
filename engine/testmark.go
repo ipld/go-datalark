@@ -56,7 +56,7 @@ func testFixture(t *testing.T, filename string) {
 	}
 }
 
-func testFixtureHelper(t *testing.T, dir testmark.DirEnt, doc *testmark.Document, sourceName string, patches *testmark.PatchAccumulator, defines []schema.TypedPrototype) {
+func testFixtureHelper(t *testing.T, dir *testmark.DirEnt, doc *testmark.Document, sourceName string, patches *testmark.PatchAccumulator, defines []schema.TypedPrototype) {
 	// There should be one of:
 	// - a "script" hunk (with an "output" sibling);
 	// - or a "script.various" hunk, with multiple children (with an "output" sibling);
