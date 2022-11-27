@@ -4,14 +4,14 @@ go 1.17
 
 require (
 	github.com/frankban/quicktest v1.14.2
+	github.com/ipfs/go-cid v0.1.0
 	github.com/ipld/go-ipld-prime v0.16.1-0.20220512031633-37f875b8e4c8
-	github.com/warpfork/go-testmark v0.9.0
+	github.com/warpfork/go-testmark v0.11.0
 	go.starlark.net v0.0.0-20210901212718-87f333178d59
 )
 
 require (
 	github.com/google/go-cmp v0.5.7 // indirect
-	github.com/ipfs/go-cid v0.1.0 // indirect
 	github.com/klauspost/cpuid/v2 v2.0.9 // indirect
 	github.com/kr/pretty v0.3.0 // indirect
 	github.com/kr/text v0.2.0 // indirect
